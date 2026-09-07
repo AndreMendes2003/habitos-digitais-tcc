@@ -1,16 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../dados/repositorio_mascote.dart';
+import '../dados/repositorio_sessoes.dart';
 import '../diagnostico/tela_diagnostico_uso.dart';
+import '../dominio/controlador_mascote.dart';
 import '../dominio/controlador_sessao.dart';
+import '../dominio/sessao_foco.dart';
+import 'widget_mascote.dart';
 
 /// Padrão todo numérico: não depende de dados de locale, então dispensa
 /// `initializeDateFormatting()`.
 final DateFormat _formatoInicio = DateFormat('dd/MM/yyyy HH:mm');
 
-/// Tela única do RF02. Sem polimento: o objetivo é evidenciar o comportamento.
+/// Tela única do RF02 + RF01. Sem polimento: o objetivo é evidenciar o
+/// comportamento.
 class TelaFoco extends StatefulWidget {
-  const TelaFoco({super.key});
+  const TelaFoco({
+    required this.repositorioMascote,
+    required this.repositorioSessoes,
+    super.key,
+  });
+
+  final RepositorioMascote repositorioMascote;
+  final RepositorioSessoes repositorioSessoes;
 
   @override
   State<TelaFoco> createState() => _TelaFocoState();
@@ -18,16 +31,32 @@ class TelaFoco extends StatefulWidget {
 
 class _TelaFocoState extends State<TelaFoco> with WidgetsBindingObserver {
   final ControladorSessao _controlador = ControladorSessao();
+  late final ControladorMascote _controladorMascote;
+
+  /// Cache do histórico persistido, relido a cada sessão finalizada.
+  List<SessaoFoco> _historicoSalvo = const [];
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    // RF01/RF03/RF04: quando o mascote existir, é aqui que a ENERGIA muda.
-    // Por ora só registra no console para servir de evidência no device.
-    _controlador.aoFinalizarSessao = (sessao) {
+    _controladorMascote = ControladorMascote(
+      inicial: widget.repositorioMascote.carregar(),
+      aoPersistir: widget.repositorioMascote.salvar,
+    );
+    _historicoSalvo = widget.repositorioSessoes.todas();
+
+    // RF03/RF04: é aqui que o resultado da sessão vira ENERGIA e vai para o
+    // disco. O debugPrint continua servindo de evidência no device.
+    _controlador.aoFinalizarSessao = (sessao) async {
       debugPrint('[RF02] $sessao');
+      await _controladorMascote.registrarSessao(sessao);
+      await widget.repositorioSessoes.adicionar(sessao);
+      if (!mounted) return;
+      setState(() {
+        _historicoSalvo = widget.repositorioSessoes.todas();
+      });
     };
   }
 
@@ -35,6 +64,7 @@ class _TelaFocoState extends State<TelaFoco> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _controlador.dispose();
+    _controladorMascote.dispose();
     super.dispose();
   }
 
@@ -84,13 +114,24 @@ class _TelaFocoState extends State<TelaFoco> with WidgetsBindingObserver {
         ],
       ),
       body: ListenableBuilder(
-        listenable: _controlador,
+        listenable: Listenable.merge([_controlador, _controladorMascote]),
         builder: (context, _) {
-          return Padding(
-            padding: const EdgeInsets.all(16),
+          // Rolável: com o mascote no topo, o conteúdo fixo já não cabe na
+          // altura de um celular pequeno. Column solta estourava o layout.
+          //
+          // O padding inferior soma a barra de navegação do Android. Vai no
+          // scroll, e não num SafeArea em volta: assim a lista rola até o fim
+          // e o último item para acima da barra, em vez de o viewport inteiro
+          // encolher.
+          final recuoInferior = MediaQuery.viewPaddingOf(context).bottom;
+
+          return SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + recuoInferior),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                WidgetMascote(mascote: _controladorMascote.mascote),
+                const Divider(height: 32),
                 _seletorDuracao(),
                 const SizedBox(height: 24),
                 Center(
@@ -103,8 +144,10 @@ class _TelaFocoState extends State<TelaFoco> with WidgetsBindingObserver {
                 _botaoPrincipal(),
                 const SizedBox(height: 24),
                 _resultado(),
-                const Divider(height: 32),
-                Expanded(child: _historico()),
+                if (_historicoSalvo.isNotEmpty) ...[
+                  const Divider(height: 32),
+                  ..._historico(),
+                ],
               ],
             ),
           );
@@ -173,15 +216,15 @@ class _TelaFocoState extends State<TelaFoco> with WidgetsBindingObserver {
     );
   }
 
-  Widget _historico() {
-    final historico = _controlador.historico.reversed.toList();
-    if (historico.isEmpty) return const SizedBox.shrink();
-
-    return ListView.builder(
-      itemCount: historico.length,
-      itemBuilder: (context, index) {
-        final s = historico[index];
-        return ListTile(
+  /// Histórico persistido (Hive), já da sessão mais recente para a mais antiga.
+  ///
+  /// Itens construídos de uma vez, dentro do scroll da página, em vez de um
+  /// ListView aninhado: no MVP a lista é curta e assim não há dois scrolls
+  /// disputando o gesto.
+  List<Widget> _historico() {
+    return [
+      for (final s in _historicoSalvo)
+        ListTile(
           dense: true,
           leading: Icon(
             s.foiConcluida ? Icons.check_circle : Icons.cancel,
@@ -189,8 +232,7 @@ class _TelaFocoState extends State<TelaFoco> with WidgetsBindingObserver {
           ),
           title: Text('${s.duracaoAlvo.inMinutes} min — ${s.status.rotulo}'),
           subtitle: Text('real: ${_formatar(s.duracaoReal)}'),
-        );
-      },
-    );
+        ),
+    ];
   }
 }

@@ -139,6 +139,9 @@ void main() {
   });
 
   test('ciclo de vida nao afeta sessao ja finalizada', () {
+    final emitidas = <SessaoFoco>[];
+    controlador.aoFinalizarSessao = emitidas.add;
+
     controlador.selecionarDuracao(const Duration(minutes: 5));
     controlador.iniciar();
     agora = agora.add(const Duration(minutes: 6));
@@ -147,7 +150,9 @@ void main() {
     controlador.aoMudarCicloDeVida(AppLifecycleState.paused);
 
     expect(controlador.ultimaSessao?.status, StatusSessao.concluida);
-    expect(controlador.historico, hasLength(1));
+    // O paused depois do fim nao pode emitir de novo: seria energia em dobro
+    // e uma sessao duplicada no historico persistido.
+    expect(emitidas, hasLength(1));
   });
 
   test('RF03/RF04: o resultado e emitido no ponto de integracao da ENERGIA', () {
@@ -163,7 +168,12 @@ void main() {
     expect(recebida!.status, StatusSessao.concluida);
   });
 
-  test('historico acumula as sessoes da execucao', () {
+  test('sessoes seguidas emitem um resultado cada, na ordem', () {
+    // O historico agora e do RepositorioSessoes; o que este controlador
+    // garante e emitir exatamente uma vez por sessao, na ordem certa.
+    final emitidas = <SessaoFoco>[];
+    controlador.aoFinalizarSessao = emitidas.add;
+
     controlador.selecionarDuracao(const Duration(minutes: 5));
 
     controlador.iniciar();
@@ -175,7 +185,7 @@ void main() {
     agora = agora.add(const Duration(minutes: 5));
     controlador.verificarProgresso();
 
-    expect(controlador.historico.map((s) => s.status), [
+    expect(emitidas.map((s) => s.status), [
       StatusSessao.interrompida,
       StatusSessao.concluida,
     ]);

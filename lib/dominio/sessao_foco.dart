@@ -1,7 +1,7 @@
 /// Resultado de uma sessão de foco (RF02).
 ///
 /// Registro imutável: uma vez finalizada, a sessão não muda mais.
-/// Por enquanto vive só em memória — a persistência com Hive entra no RF01.
+/// Persistido pelo RepositorioSessoes via [paraMapa]/[SessaoFoco.doMapa].
 library;
 
 /// Desfecho de uma sessão de foco.
@@ -49,6 +49,32 @@ class SessaoFoco {
     if (duracaoAlvo.inMilliseconds <= 0) return 0;
     final razao = duracaoReal.inMilliseconds / duracaoAlvo.inMilliseconds;
     return razao.clamp(0.0, 1.0);
+  }
+
+  /// Serializa em primitivos, sem TypeAdapter do Hive.
+  ///
+  /// Guardar só int e String dispensa `hive_generator` e `build_runner`, e
+  /// deixa o dado legível ao inspecionar a caixa — o que importa para a
+  /// coleta de evidência do artigo.
+  Map<String, dynamic> paraMapa() => {
+        'duracaoAlvoSegundos': duracaoAlvo.inSeconds,
+        'duracaoRealSegundos': duracaoReal.inSeconds,
+        'inicioEm': inicioEm.toIso8601String(),
+        'status': status.name,
+      };
+
+  /// Aceita `Map` cru porque o Hive devolve `Map<dynamic, dynamic>`, não
+  /// `Map<String, dynamic>`.
+  ///
+  /// Lança se o registro estiver ilegível (campo faltando, status de um enum
+  /// que não existe mais). Quem decide o que fazer com isso é o repositório.
+  factory SessaoFoco.doMapa(Map<dynamic, dynamic> mapa) {
+    return SessaoFoco(
+      duracaoAlvo: Duration(seconds: mapa['duracaoAlvoSegundos'] as int),
+      duracaoReal: Duration(seconds: mapa['duracaoRealSegundos'] as int),
+      inicioEm: DateTime.parse(mapa['inicioEm'] as String),
+      status: StatusSessao.values.byName(mapa['status'] as String),
+    );
   }
 
   @override

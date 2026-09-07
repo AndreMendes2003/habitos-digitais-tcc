@@ -39,14 +39,13 @@ class ControladorSessao extends ChangeNotifier {
   DateTime? _inicioEm;
   Timer? _ticker;
   SessaoFoco? _ultimaSessao;
-  final List<SessaoFoco> _historico = [];
 
   Duration get duracaoAlvo => _duracaoAlvo;
   EstadoSessao get estado => _estado;
-  SessaoFoco? get ultimaSessao => _ultimaSessao;
 
-  /// Sessões da execução atual. Some ao fechar o app — Hive entra no RF01.
-  List<SessaoFoco> get historico => List.unmodifiable(_historico);
+  /// Apenas a sessão recém-encerrada, para exibir o resultado.
+  /// O histórico completo é do RepositorioSessoes.
+  SessaoFoco? get ultimaSessao => _ultimaSessao;
 
   bool get emAndamento => _estado == EstadoSessao.emAndamento;
 
@@ -144,10 +143,10 @@ class ControladorSessao extends ChangeNotifier {
     );
 
     _ultimaSessao = sessao;
-    _historico.add(sessao);
     _estado = EstadoSessao.finalizada;
 
-    // RF03/RF04: daqui o resultado segue para a ENERGIA do mascote.
+    // RF03/RF04: daqui o resultado segue para a ENERGIA do mascote e para o
+    // RepositorioSessoes — este controlador não guarda histórico.
     aoFinalizarSessao?.call(sessao);
 
     notifyListeners();
