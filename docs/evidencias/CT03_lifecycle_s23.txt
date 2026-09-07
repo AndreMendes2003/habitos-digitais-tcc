@@ -1,0 +1,36 @@
+Evidência de teste — RNF01 (detecção de saída do app)
+Dispositivo: Samsung Galaxy S23 (SM S911B), Android 15 / One UI
+Data: 07/09/2026, ~12:13
+Build: flutter run em modo debug
+
+--- CT03: barra de notificação puxada durante sessão ativa ---
+Esperado: sessão NÃO deve ser interrompida
+
+[LIFECYCLE] estado recebido: inactive | sessão ativa: sim | ação: ignorado
+[LIFECYCLE] estado recebido: resumed  | sessão ativa: sim | ação: ignorado
+
+Resultado: PASSOU. O estado 'inactive' foi emitido isoladamente e
+não evoluiu para 'paused'. A sessão permaneceu ativa.
+
+--- CT02: saída para outro aplicativo durante sessão ativa ---
+Esperado: sessão deve ser interrompida
+
+[LIFECYCLE] estado recebido: inactive | sessão ativa: sim | ação: ignorado
+[LIFECYCLE] estado recebido: hidden   | sessão ativa: sim | ação: ignorado
+[RF02] SessaoFoco(alvo: 5min, real: 49s, inicio: 2026-09-07 12:13:28.593498, status: interrompida)
+[LIFECYCLE] estado recebido: paused   | sessão ativa: sim | ação: interrompido
+
+Resultado: PASSOU. Sequência completa inactive -> hidden -> paused.
+A interrupção ocorreu apenas no 'paused'.
+
+--- Retorno ao aplicativo ---
+[LIFECYCLE] estado recebido: hidden   | sessão ativa: não | ação: ignorado
+[LIFECYCLE] estado recebido: inactive | sessão ativa: não | ação: ignorado
+[LIFECYCLE] estado recebido: resumed  | sessão ativa: não | ação: ignorado
+
+--- Observações ---
+A linha [RF02] aparece antes da linha [LIFECYCLE] do 'paused' por
+ordem de debugPrint, não por ordem de execução.
+
+Versão anterior do código tratava 'inactive' como saída, gerando
+falso positivo no CT03. Correção: apenas 'paused' interrompe.
