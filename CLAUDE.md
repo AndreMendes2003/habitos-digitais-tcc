@@ -1,28 +1,28 @@
-# habitos_digitais — TCC II
+## Arquitetura: fontes de sinal
 
-Serious game (Flutter/Android) para reduzir uso de redes sociais.
-Público: universitários 18–25. Mascote virtual + timer de foco.
+Duas fontes independentes alimentam uma única variável ENERGIA (0-100):
 
-## Escopo do MVP
-- Android apenas. Sem iOS, sem web.
-- Flame Engine está EXCLUÍDO. A FSM do mascote é regra de negócio,
-  não game loop. Animações via Rive/Lottie (pós-PC2).
-- Sincronização em nuvem (RNF02) adiada. Persistência local com Hive.
-- RF07 (histórico visual) fora do MVP.
+- lib/foco/  — sessão de foco. Ativa, por evento. +15 concluída, -10 interrompida.
+- lib/uso/   — monitor de redes sociais. Passiva, agregado diário. Penalidade por excesso.
+- lib/mascote/ — ponto ÚNICO de escrita da energia. Nenhum outro módulo
+  altera energia diretamente.
 
-## Requisitos em andamento
-- RF02: timer de foco, detecção de saída via WidgetsBindingObserver
-- RF01: mascote com ENERGIA 0–100, FSM Feliz/Neutro/Cansado
-- RF03/RF04: sessão concluída soma energia, interrompida subtrai
-- RF04: classificação de "rede social" é decisão metodológica,
-  não técnica. Não inventar lista sem critério documentado.
+O estado (Feliz/Neutro/Cansado) é DERIVADO da energia, nunca armazenado.
+Limiares 70/30.
 
-## Restrições
-- usage_stats só funciona em device físico (Samsung via USB).
-  Emulador não gera dados reais de UsageStatsManager.
-- Prazo PC2: 16/09. Prioridade é evidência para o artigo,
-  não polimento de UI.
+## Parâmetros provisórios
 
-## Convenções
-- Comentários e nomes de domínio em português; código em inglês.
-- Rodar `flutter analyze` antes de commit.
++15 / -10 / 70 / 30 / limiar 120 min / -5 por 30 min / teto -30.
+Todos provisórios, a calibrar no teste piloto. Manter em arquivo único
+e nomeados — nunca literais espalhados no código.
+
+## Fora do escopo do MVP
+
+RF05 (loja), RF06 (minigames), RF07 (histórico visual), RNF02 (nuvem),
+animações Rive/Lottie. Não implementar, não sugerir.
+
+## Registro de IA
+
+Todo arquivo gerado ou modificado com auxílio de IA deve ser anotado em
+docs/uso_ia.md: arquivo, data, o que foi gerado. Exigência dos Arts. 6º e 7º
+do regulamento de TCC.

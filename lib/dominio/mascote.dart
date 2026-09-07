@@ -5,7 +5,6 @@
 library;
 
 import 'regras_energia.dart';
-import 'sessao_foco.dart';
 
 /// Estados do mascote. NÃO são armazenados: saem da energia via [Mascote.estado].
 enum EstadoMascote {
@@ -46,18 +45,13 @@ class Mascote {
   /// Fração de 0.0 a 1.0, pronta para a barra de energia da UI.
   double get proporcaoEnergia => energia / RegrasEnergia.energiaMaxima;
 
-  /// RF03/RF04: aplica o resultado de uma sessão de foco.
+  /// Devolve um mascote com [delta] somado à energia, já clampado.
   ///
-  /// Recebe a [SessaoFoco] inteira, e não só o status, porque a penalidade
-  /// proporcional (via [SessaoFoco.proporcaoCumprida]) é um ajuste previsto —
-  /// hoje só o desfecho importa.
-  Mascote aplicar(SessaoFoco sessao) {
-    final delta = switch (sessao.status) {
-      StatusSessao.concluida => RegrasEnergia.deltaSessaoConcluida,
-      StatusSessao.interrompida => RegrasEnergia.deltaSessaoInterrompida,
-    };
-    return Mascote(energia: energia + delta);
-  }
+  /// Genérico de propósito: os dois ramos do RF04 (sessão de foco e uso de
+  /// redes sociais) alimentam energia, e o modelo não precisa conhecer nenhum
+  /// dos dois. Quem traduz cada evento em delta é [RegrasEnergia]; quem
+  /// aplica é o ControladorMascote.
+  Mascote comDelta(int delta) => Mascote(energia: energia + delta);
 
   @override
   String toString() => 'Mascote(energia: $energia, estado: ${estado.name})';

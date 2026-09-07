@@ -3,10 +3,14 @@ import 'package:intl/intl.dart';
 
 import '../dados/repositorio_mascote.dart';
 import '../dados/repositorio_sessoes.dart';
+import '../dados/repositorio_uso.dart';
 import '../diagnostico/tela_diagnostico_uso.dart';
 import '../dominio/controlador_mascote.dart';
 import '../dominio/controlador_sessao.dart';
+import '../dominio/controlador_uso.dart';
+import '../dominio/regras_energia.dart';
 import '../dominio/sessao_foco.dart';
+import '../uso/medicao_uso.dart';
 import 'widget_mascote.dart';
 
 /// Padrão todo numérico: não depende de dados de locale, então dispensa
@@ -19,11 +23,18 @@ class TelaFoco extends StatefulWidget {
   const TelaFoco({
     required this.repositorioMascote,
     required this.repositorioSessoes,
+    required this.repositorioUso,
+    required this.medirUso,
     super.key,
   });
 
   final RepositorioMascote repositorioMascote;
   final RepositorioSessoes repositorioSessoes;
+  final RepositorioUso repositorioUso;
+
+  /// Injetada para que o widget test não precise do plugin usage_stats.
+  /// Em `main()` aponta para `ServicoUso.medirHoje`.
+  final Future<MedicaoUso> Function() medirUso;
 
   @override
   State<TelaFoco> createState() => _TelaFocoState();
@@ -32,6 +43,7 @@ class TelaFoco extends StatefulWidget {
 class _TelaFocoState extends State<TelaFoco> with WidgetsBindingObserver {
   final ControladorSessao _controlador = ControladorSessao();
   late final ControladorMascote _controladorMascote;
+  late final ControladorUso _controladorUso;
 
   /// Cache do histórico persistido, relido a cada sessão finalizada.
   List<SessaoFoco> _historicoSalvo = const [];
@@ -45,6 +57,11 @@ class _TelaFocoState extends State<TelaFoco> with WidgetsBindingObserver {
       inicial: widget.repositorioMascote.carregar(),
       aoPersistir: widget.repositorioMascote.salvar,
     );
+    _controladorUso = ControladorUso(
+      medir: widget.medirUso,
+      avaliacaoInicial: widget.repositorioUso.carregar(),
+      aoPersistir: widget.repositorioUso.salvar,
+    );
     _historicoSalvo = widget.repositorioSessoes.todas();
 
     // RF03/RF04: é aqui que o resultado da sessão vira ENERGIA e vai para o
@@ -53,11 +70,30 @@ class _TelaFocoState extends State<TelaFoco> with WidgetsBindingObserver {
       debugPrint('[RF02] $sessao');
       await _controladorMascote.registrarSessao(sessao);
       await widget.repositorioSessoes.adicionar(sessao);
-      if (!mounted) return;
-      setState(() {
-        _historicoSalvo = widget.repositorioSessoes.todas();
-      });
+      if (mounted) {
+        setState(() {
+          _historicoSalvo = widget.repositorioSessoes.todas();
+        });
+      }
+      // RF04, gatilho 2: fim de sessão.
+      await _avaliarUso();
     };
+
+    // RF04, gatilho 3: abertura a frio. O Flutter não emite `resumed` para o
+    // estado inicial, então sem isto o app só avaliaria depois de o usuário
+    // sair e voltar — justamente o cenário "reabrir o app" do requisito.
+    _avaliarUso();
+  }
+
+  /// Mede, e manda o delta para o ÚNICO ponto de escrita de energia.
+  ///
+  /// O ControladorUso calcula mas não aplica; `lib/uso/` só mede. A aplicação
+  /// acontece exclusivamente no ControladorMascote.
+  Future<void> _avaliarUso() async {
+    final delta = await _controladorUso.avaliar();
+    if (delta != 0) {
+      await _controladorMascote.registrarPenalidadeUso(delta);
+    }
   }
 
   @override
@@ -65,6 +101,7 @@ class _TelaFocoState extends State<TelaFoco> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _controlador.dispose();
     _controladorMascote.dispose();
+    _controladorUso.dispose();
     super.dispose();
   }
 
@@ -87,6 +124,38 @@ class _TelaFocoState extends State<TelaFoco> with WidgetsBindingObserver {
       '[LIFECYCLE] estado recebido: ${state.name} '
       '| sessão ativa: ${estavaAtiva ? 'sim' : 'não'} '
       '| ação: $acao',
+    );
+
+    // RF04, gatilho 1: voltou para o primeiro plano, hora de remedir o uso.
+    // Não interfere no RNF01 — `resumed` continua não encerrando sessão.
+    if (state == AppLifecycleState.resumed) {
+      _avaliarUso();
+    }
+  }
+
+  /// RF04, item 7: linha única de status. Sem tela nova.
+  Widget _statusRedesSociais() {
+    if (!_controladorUso.permissaoConcedida) {
+      // Item 6: sem permissão não se penaliza, mas o usuário precisa saber.
+      // O botão de conceder já existe na tela de diagnóstico (ícone no
+      // AppBar), então aqui basta sinalizar.
+      return const Text(
+        'Redes sociais hoje: permissão não concedida',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: Colors.orange),
+      );
+    }
+
+    final minutos = _controladorUso.minutosHoje;
+    final limite = RegrasEnergia.limiteDiarioRedesSociaisMinutos;
+
+    return Text(
+      'Redes sociais hoje: $minutos min / $limite min',
+      textAlign: TextAlign.center,
+      style: TextStyle(
+        color: minutos > limite ? Colors.redAccent : null,
+        fontWeight: minutos > limite ? FontWeight.bold : null,
+      ),
     );
   }
 
@@ -114,7 +183,9 @@ class _TelaFocoState extends State<TelaFoco> with WidgetsBindingObserver {
         ],
       ),
       body: ListenableBuilder(
-        listenable: Listenable.merge([_controlador, _controladorMascote]),
+        listenable: Listenable.merge(
+          [_controlador, _controladorMascote, _controladorUso],
+        ),
         builder: (context, _) {
           // Rolável: com o mascote no topo, o conteúdo fixo já não cabe na
           // altura de um celular pequeno. Column solta estourava o layout.
@@ -131,6 +202,8 @@ class _TelaFocoState extends State<TelaFoco> with WidgetsBindingObserver {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 WidgetMascote(mascote: _controladorMascote.mascote),
+                const SizedBox(height: 8),
+                _statusRedesSociais(),
                 const Divider(height: 32),
                 _seletorDuracao(),
                 const SizedBox(height: 24),

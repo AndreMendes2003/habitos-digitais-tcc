@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:habitos_digitais/dados/repositorio_mascote.dart';
 import 'package:habitos_digitais/dados/repositorio_sessoes.dart';
+import 'package:habitos_digitais/dados/repositorio_uso.dart';
+import 'package:habitos_digitais/dominio/avaliacao_uso.dart';
 import 'package:habitos_digitais/dominio/mascote.dart';
 import 'package:habitos_digitais/dominio/sessao_foco.dart';
 import 'package:hive/hive.dart';
@@ -141,6 +143,64 @@ void main() {
       final lidas = repositorio.todas();
       expect(lidas, hasLength(2));
       expect(lidas.map((s) => s.inicioEm.day), [7, 5]);
+    });
+  });
+
+  group('RepositorioUso', () {
+    Future<RepositorioUso> abrir() async {
+      final caixa = await Hive.openBox<Map<dynamic, dynamic>>(
+        RepositorioUso.nomeCaixa,
+      );
+      return RepositorioUso(caixa);
+    }
+
+    test('caixa vazia devolve null (nunca avaliado)', () async {
+      final repositorio = await abrir();
+
+      expect(repositorio.carregar(), isNull);
+    });
+
+    test('avaliacao sobrevive ao fechar e reabrir', () async {
+      final repositorio = await abrir();
+      await repositorio.salvar(
+        AvaliacaoUsoDiaria(
+          dia: DateTime(2026, 9, 7),
+          minutosContabilizados: 175,
+        ),
+      );
+
+      await Hive.close();
+      final reaberto = await abrir();
+
+      final lida = reaberto.carregar()!;
+      expect(lida.dia, DateTime(2026, 9, 7));
+      expect(lida.minutosContabilizados, 175);
+      expect(lida.ehDoMesmoDia(DateTime(2026, 9, 7, 23, 59)), isTrue);
+      expect(lida.ehDoMesmoDia(DateTime(2026, 9, 8, 0, 1)), isFalse);
+    });
+
+    test('salvar de novo substitui o registro do dia', () async {
+      final repositorio = await abrir();
+      final dia = DateTime(2026, 9, 7);
+
+      await repositorio.salvar(
+        AvaliacaoUsoDiaria(dia: dia, minutosContabilizados: 100),
+      );
+      await repositorio.salvar(
+        AvaliacaoUsoDiaria(dia: dia, minutosContabilizados: 200),
+      );
+
+      expect(repositorio.carregar()!.minutosContabilizados, 200);
+    });
+
+    test('registro ilegivel devolve null em vez de estourar', () async {
+      final caixa = await Hive.openBox<Map<dynamic, dynamic>>(
+        RepositorioUso.nomeCaixa,
+      );
+      await caixa.put('avaliacao', {'formato': 'antigo'});
+
+      // Comecar o dia do zero e melhor do que derrubar a tela.
+      expect(RepositorioUso(caixa).carregar(), isNull);
     });
   });
 }

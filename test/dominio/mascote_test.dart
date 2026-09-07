@@ -58,48 +58,60 @@ void main() {
     });
   });
 
-  group('RF03/RF04: aplicar sessao', () {
+  /// Delta de sessao vem de RegrasEnergia.deltaParaSessao; o modelo so soma.
+  int deltaDe(StatusSessao status) =>
+      RegrasEnergia.deltaParaSessao(sessao(status).status);
+
+  group('RF03/RF04: comDelta', () {
     test('sessao concluida soma energia', () {
-      final resultado = Mascote(energia: 50).aplicar(
-        sessao(StatusSessao.concluida),
-      );
+      final resultado =
+          Mascote(energia: 50).comDelta(deltaDe(StatusSessao.concluida));
 
       expect(resultado.energia, 50 + RegrasEnergia.deltaSessaoConcluida);
       expect(resultado.energia, 65);
     });
 
     test('sessao interrompida subtrai energia', () {
-      final resultado = Mascote(energia: 50).aplicar(
-        sessao(StatusSessao.interrompida),
-      );
+      final resultado =
+          Mascote(energia: 50).comDelta(deltaDe(StatusSessao.interrompida));
 
       expect(resultado.energia, 50 + RegrasEnergia.deltaSessaoInterrompida);
       expect(resultado.energia, 40);
     });
 
+    test('penalidade de uso de redes sociais tambem passa por comDelta', () {
+      // RF04, segundo ramo: o modelo nao distingue a origem do delta.
+      final resultado = Mascote(energia: 50).comDelta(-30);
+
+      expect(resultado.energia, 20);
+      expect(resultado.estado, EstadoMascote.cansado);
+    });
+
     test('clamp no teto: 95 + concluida para em 100, nao 110', () {
-      final resultado = Mascote(energia: 95).aplicar(
-        sessao(StatusSessao.concluida),
-      );
+      final resultado =
+          Mascote(energia: 95).comDelta(deltaDe(StatusSessao.concluida));
 
       expect(resultado.energia, 100);
       expect(resultado.estado, EstadoMascote.feliz);
     });
 
     test('clamp no piso: 5 + interrompida para em 0, nao -5', () {
-      final resultado = Mascote(energia: 5).aplicar(
-        sessao(StatusSessao.interrompida),
-      );
+      final resultado =
+          Mascote(energia: 5).comDelta(deltaDe(StatusSessao.interrompida));
 
       expect(resultado.energia, 0);
       expect(resultado.estado, EstadoMascote.cansado);
+    });
+
+    test('clamp no piso com penalidade de uso maxima', () {
+      expect(Mascote(energia: 10).comDelta(-30).energia, 0);
     });
 
     test('transicao Neutro -> Feliz cruzando o limiar', () {
       final antes = Mascote(energia: 60);
       expect(antes.estado, EstadoMascote.neutro);
 
-      final depois = antes.aplicar(sessao(StatusSessao.concluida));
+      final depois = antes.comDelta(deltaDe(StatusSessao.concluida));
       expect(depois.energia, 75);
       expect(depois.estado, EstadoMascote.feliz);
     });
@@ -108,14 +120,14 @@ void main() {
       final antes = Mascote(energia: 35);
       expect(antes.estado, EstadoMascote.neutro);
 
-      final depois = antes.aplicar(sessao(StatusSessao.interrompida));
+      final depois = antes.comDelta(deltaDe(StatusSessao.interrompida));
       expect(depois.energia, 25);
       expect(depois.estado, EstadoMascote.cansado);
     });
 
-    test('aplicar nao muta o mascote original', () {
+    test('comDelta nao muta o mascote original', () {
       final original = Mascote(energia: 50);
-      original.aplicar(sessao(StatusSessao.concluida));
+      original.comDelta(deltaDe(StatusSessao.concluida));
 
       expect(original.energia, 50);
     });
