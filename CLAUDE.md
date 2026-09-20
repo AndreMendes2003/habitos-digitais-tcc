@@ -41,6 +41,10 @@ no dia corrente. Não é reconstruível depois — um dia perdido é perdido.
 RF05 (loja), RF06 (minigames), notificações locais, sync em nuvem
 (RNF02). Não implementar, não sugerir.
 
+Animações Rive/Lottie — não adicionar sem pedido explícito. A fase
+visual será anunciada; até lá o mascote continua no placeholder de
+emoji e barra.
+
 ## Registro de IA
 
 Todo arquivo gerado ou modificado com auxílio de IA deve ser anotado em
