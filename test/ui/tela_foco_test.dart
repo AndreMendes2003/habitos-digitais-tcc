@@ -159,6 +159,10 @@ void main() {
 
     await tester.tap(find.text('5 min'));
     await tester.pump();
+    // O mascote animado ocupa ate 260px de altura, e no viewport de teste
+    // (800x600) o botao fica abaixo da dobra. A tela e um
+    // SingleChildScrollView: no aparelho o usuario rolaria ate ele.
+    await tester.ensureVisible(find.text('Iniciar foco'));
     await tester.tap(find.text('Iniciar foco'));
     await tester.pump();
 
@@ -200,6 +204,10 @@ void main() {
 
     await tester.tap(find.text('5 min'));
     await tester.pump();
+    // O mascote animado ocupa ate 260px de altura, e no viewport de teste
+    // (800x600) o botao fica abaixo da dobra. A tela e um
+    // SingleChildScrollView: no aparelho o usuario rolaria ate ele.
+    await tester.ensureVisible(find.text('Iniciar foco'));
     await tester.tap(find.text('Iniciar foco'));
     await tester.pump();
 

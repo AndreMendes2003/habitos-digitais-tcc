@@ -35,3 +35,9 @@ Ferramenta: Claude (Anthropic), via Claude Code.
 | 2026-09-20 | `lib/ui/tela_foco.dart`, `lib/ui/widget_mascote.dart` | Modificados por IA: cores e fontes hardcoded trocadas pelos tokens e FilledButton trocado por BotaoPrincipal. Layout, textos e ordem dos widgets inalterados. |
 | 2026-09-20 | `lib/main.dart` | Modificado por IA: MaterialApp passou a usar Tema.claro e Tema.escuro. |
 | 2026-09-20 | `pubspec.yaml` | Modificado por IA: google_fonts e lottie adicionados a pedido explicito. Lottie ainda nao e usado em lugar nenhum. |
+| 2026-09-20 | `lib/ui/componentes/animacoes_mascote.dart` | Gerado por IA. Cache das tres composicoes Lottie, decodificadas uma vez no boot (`precarregar()`) e servidas de memoria. Falha em um arquivo nao derruba o app: o estado fica sem animacao. |
+| 2026-09-20 | `lib/ui/componentes/widget_mascote.dart` | Reescrito por IA: exibe a animacao Lottie do estado atual em loop, com AnimatedSwitcher de 300ms entre estados e tamanho proporcional a largura (50%, entre 140 e 260px). Barra de energia e rotulo mantidos, com as cores de estado do tema. Movido de `lib/ui/`. |
+| 2026-09-20 | `lib/main.dart` | Modificado por IA: chama `AnimacoesMascote.precarregar()` antes do `runApp`. |
+| 2026-09-20 | `pubspec.yaml` | Modificado por IA: declara `assets/animacoes/`. |
+| 2026-09-20 | `test/ui/tela_foco_test.dart` | Modificado por IA, so o gesto: `ensureVisible` antes dos dois taps em "Iniciar foco", que o mascote maior empurrou para fora do viewport de 800x600. Nenhuma assercao ou cenario alterado. |
+| 2026-09-20 | `assets/animacoes/*.json`, `docs/assets.md` | NAO gerados por IA. Animacoes de terceiros (Abdul Latif / LottieFiles) e o registro de licenca escrito pelo autor; renomeados por IA para os nomes usados no codigo. |

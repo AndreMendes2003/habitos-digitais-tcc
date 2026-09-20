@@ -7,6 +7,7 @@ import 'dados/repositorio_mascote.dart';
 import 'dados/repositorio_sessoes.dart';
 import 'dados/repositorio_uso.dart';
 import 'estado/estado_mascote.dart';
+import 'ui/componentes/animacoes_mascote.dart';
 import 'ui/tema/tema.dart';
 import 'ui/tela_foco.dart';
 import 'uso/servico_uso.dart';
@@ -29,6 +30,11 @@ Future<void> main() async {
   final caixaHistorico = await Hive.openBox<Map<dynamic, dynamic>>(
     RepositorioHistorico.nomeCaixa,
   );
+
+  // As tres composicoes Lottie somam ~1,1MB de JSON. Decodificadas aqui, uma
+  // vez, e nao na troca de estado — que acontece logo depois de o usuario
+  // concluir ou interromper uma sessao, quando a tela precisa responder.
+  await AnimacoesMascote.precarregar();
 
   runApp(
     // Acima do MaterialApp de propósito: o EstadoApp sobrevive a qualquer

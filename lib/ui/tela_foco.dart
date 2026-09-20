@@ -7,10 +7,10 @@ import '../dominio/controlador_sessao.dart';
 import '../dominio/regras_energia.dart';
 import '../estado/estado_mascote.dart';
 import 'componentes/botao_principal.dart';
+import 'componentes/widget_mascote.dart';
 import 'tema/cores.dart';
 import 'tema/espacamento.dart';
 import 'tema/tipografia.dart';
-import 'widget_mascote.dart';
 
 /// Padrão todo numérico: não depende de dados de locale, então dispensa
 /// `initializeDateFormatting()`.
