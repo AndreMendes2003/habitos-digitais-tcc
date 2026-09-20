@@ -92,7 +92,7 @@ class _CorpoFoco extends StatelessWidget {
               children: [
                 WidgetMascote(mascote: estado.mascote),
                 const SizedBox(height: 8),
-                _statusRedesSociais(estado),
+                _statusRedesSociais(context, estado),
                 const Divider(height: 32),
                 _seletorDuracao(estado),
                 const SizedBox(height: 24),
@@ -119,7 +119,17 @@ class _CorpoFoco extends StatelessWidget {
   }
 
   /// RF04, item 7: linha única de status. Sem tela nova.
-  Widget _statusRedesSociais(EstadoApp estado) {
+  Widget _statusRedesSociais(BuildContext context, EstadoApp estado) {
+    if (estado.medicaoUsoPendente) {
+      // Ainda não houve medição. Mostrar "0 min" aqui seria afirmar um dado
+      // que o app não tem — e 0 é justamente o valor de um dia perfeito.
+      return Text(
+        'Redes sociais hoje: medindo...',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: Theme.of(context).disabledColor),
+      );
+    }
+
     if (!estado.permissaoUsoConcedida) {
       // Item 6: sem permissão não se penaliza, mas o usuário precisa saber.
       // O botão de conceder já existe na tela de diagnóstico (ícone no

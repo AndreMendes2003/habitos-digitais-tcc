@@ -105,6 +105,11 @@ class EstadoApp extends ChangeNotifier {
   /// dela terminar estoura com "Box has already been closed".
   late final Future<void> primeiraAvaliacao;
 
+  /// Falso até a PRIMEIRA avaliação terminar, qualquer que seja o desfecho
+  /// — inclusive permissão negada. Separa "ainda não sei" de "medi, deu 0",
+  /// que na tela são a mesma coisa se olharmos só os minutos.
+  bool _primeiraMedicaoConcluida = false;
+
   List<SessaoFoco> _historico = const [];
 
   /// Cache do histórico diário. Reler a caixa em cada getter faria disco a
@@ -142,6 +147,10 @@ class EstadoApp extends ChangeNotifier {
   // --- Uso de redes sociais (RF04) ------------------------------------------
 
   int get minutosRedesSociaisHoje => _controladorUso.minutosHoje;
+
+  /// A medição de hoje ainda não chegou. Enquanto for `true`, os minutos e a
+  /// permissão não significam nada — são o valor inicial, não uma medida.
+  bool get medicaoUsoPendente => !_primeiraMedicaoConcluida;
 
   bool get permissaoUsoConcedida => _controladorUso.permissaoConcedida;
 
@@ -210,6 +219,11 @@ class EstadoApp extends ChangeNotifier {
       await _controladorMascote.registrarPenalidadeUso(delta);
     }
     await _registrarDiaCorrente();
+
+    if (!_primeiraMedicaoConcluida) {
+      _primeiraMedicaoConcluida = true;
+      notifyListeners();
+    }
   }
 
   /// RF07: grava/atualiza o registro de hoje.

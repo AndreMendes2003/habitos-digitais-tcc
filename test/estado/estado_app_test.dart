@@ -101,6 +101,65 @@ void main() {
         status: status,
       );
 
+  group('estado de carregamento da medição', () {
+    test('pendente antes da primeira medição, resolvido depois', () async {
+      medicao = const MedicaoUso(permissaoConcedida: true, minutos: 0);
+
+      final app = EstadoApp(
+        repositorioMascote: repositorioMascote,
+        repositorioSessoes: repositorioSessoes,
+        repositorioUso: repositorioUso,
+        repositorioHistorico: repositorioHistorico,
+        medirUso: () async => medicao,
+        relogio: () => hoje,
+      );
+      estado = app;
+
+      // Antes de a medição chegar, 0 minuto e "sem permissão" ainda não são
+      // fatos — são o valor inicial dos campos.
+      expect(app.medicaoUsoPendente, isTrue);
+
+      await app.primeiraAvaliacao;
+
+      expect(app.medicaoUsoPendente, isFalse);
+      expect(app.minutosRedesSociaisHoje, 0);
+    });
+
+    test('permissão negada também resolve o carregamento', () async {
+      // Sem permissão não há medida, mas há resposta: a tela precisa sair do
+      // "medindo..." e mostrar o aviso de permissão.
+      medicao = const MedicaoUso.semPermissao();
+
+      final app = await abrirApp();
+
+      expect(app.medicaoUsoPendente, isFalse);
+      expect(app.permissaoUsoConcedida, isFalse);
+    });
+
+    test('notifica ao sair do carregamento', () async {
+      medicao = const MedicaoUso(permissaoConcedida: true, minutos: 5);
+
+      final app = EstadoApp(
+        repositorioMascote: repositorioMascote,
+        repositorioSessoes: repositorioSessoes,
+        repositorioUso: repositorioUso,
+        repositorioHistorico: repositorioHistorico,
+        medirUso: () async => medicao,
+        relogio: () => hoje,
+      );
+      estado = app;
+
+      var avisos = 0;
+      app.addListener(() => avisos++);
+
+      await app.primeiraAvaliacao;
+
+      // Sem notificação a tela ficaria em "medindo..." para sempre.
+      expect(avisos, greaterThan(0));
+      expect(app.medicaoUsoPendente, isFalse);
+    });
+  });
+
   test('abertura a frio grava o registro do dia', () async {
     medicao = const MedicaoUso(permissaoConcedida: true, minutos: 45);
 
