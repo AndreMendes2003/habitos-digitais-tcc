@@ -9,9 +9,11 @@ import 'package:habitos_digitais/dominio/avaliacao_uso.dart';
 import 'package:habitos_digitais/dominio/mascote.dart';
 import 'package:habitos_digitais/dominio/regras_energia.dart';
 import 'package:habitos_digitais/dominio/sessao_foco.dart';
+import 'package:habitos_digitais/estado/estado_mascote.dart';
 import 'package:habitos_digitais/ui/tela_foco.dart';
 import 'package:habitos_digitais/uso/medicao_uso.dart';
 import 'package:hive/hive.dart';
+import 'package:provider/provider.dart';
 
 void main() {
   late Directory diretorio;
@@ -21,6 +23,11 @@ void main() {
 
   /// Medição injetada: o widget test nunca toca no plugin usage_stats.
   late MedicaoUso medicao;
+
+  /// Criado em `montar()`, depois de os repositórios já estarem semeados: o
+  /// EstadoApp lê o Hive no construtor. Guardado aqui só para o tearDown ter
+  /// o que descartar — a tela não o conhece, recebe pelo provider.
+  EstadoApp? estado;
 
   setUp(() async {
     diretorio = await Directory.systemTemp.createTemp('habitos_tela_test');
@@ -35,9 +42,13 @@ void main() {
       await Hive.openBox<Map<dynamic, dynamic>>(RepositorioUso.nomeCaixa),
     );
     medicao = const MedicaoUso(permissaoConcedida: true, minutos: 0);
+    estado = null;
   });
 
   tearDown(() async {
+    // Antes do Hive: o dispose cancela o ticker da sessão, que de outro modo
+    // poderia disparar uma gravação numa caixa já fechada.
+    estado?.dispose();
     await Hive.deleteFromDisk();
     await Hive.close();
     if (diretorio.existsSync()) {
@@ -45,16 +56,29 @@ void main() {
     }
   });
 
-  Widget montar() => MaterialApp(
-        home: TelaFoco(
-          repositorioMascote: repositorioMascote,
-          repositorioSessoes: repositorioSessoes,
-          repositorioUso: repositorioUso,
-          medirUso: () async => medicao,
-        ),
-      );
+  /// Mesma montagem de `main.dart`: o EstadoApp fica ACIMA do MaterialApp e
+  /// a tela só o consome. `medirUso` lê a variável `medicao` a cada chamada,
+  /// então os cenários continuam podendo trocá-la entre os resumes.
+  Widget montar() {
+    final novo = EstadoApp(
+      repositorioMascote: repositorioMascote,
+      repositorioSessoes: repositorioSessoes,
+      repositorioUso: repositorioUso,
+      medirUso: () async => medicao,
+    );
+    estado = novo;
 
-  /// Monta a tela e deixa a avaliação de uso do `initState` assentar.
+    return ChangeNotifierProvider<EstadoApp>.value(
+      value: novo,
+      child: const MaterialApp(home: TelaFoco()),
+    );
+  }
+
+  /// Monta a tela e deixa a avaliação de uso da abertura a frio assentar.
+  ///
+  /// O gatilho não é mais o `initState` da tela: quem dispara o RF04 a frio é
+  /// o construtor do EstadoApp, criado em `montar()` logo antes do
+  /// `pumpWidget`.
   ///
   /// LIMITE DO HARNESS: `pumpWidget` roda na zona fake-async e não pode ser
   /// chamado dentro de `runAsync`. Uma escrita no Hive iniciada aí nunca

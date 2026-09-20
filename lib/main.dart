@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:provider/provider.dart';
 
 import 'dados/repositorio_mascote.dart';
 import 'dados/repositorio_sessoes.dart';
 import 'dados/repositorio_uso.dart';
+import 'estado/estado_mascote.dart';
 import 'ui/tela_foco.dart';
-import 'uso/medicao_uso.dart';
 import 'uso/servico_uso.dart';
 
 Future<void> main() async {
@@ -25,40 +26,35 @@ Future<void> main() async {
   );
 
   runApp(
-    AppHabitosDigitais(
-      repositorioMascote: RepositorioMascote(caixaMascote),
-      repositorioSessoes: RepositorioSessoes(caixaSessoes),
-      repositorioUso: RepositorioUso(caixaUso),
-      medirUso: ServicoUso().medirHoje,
+    // Acima do MaterialApp de propósito: o EstadoApp sobrevive a qualquer
+    // navegação, e o gatilho de abertura a frio do RF04 dispara uma vez só,
+    // na criação, e não a cada vez que a tela é remontada.
+    ChangeNotifierProvider<EstadoApp>(
+      create: (_) => EstadoApp(
+        repositorioMascote: RepositorioMascote(caixaMascote),
+        repositorioSessoes: RepositorioSessoes(caixaSessoes),
+        repositorioUso: RepositorioUso(caixaUso),
+        medirUso: ServicoUso().medirHoje,
+      ),
+      // Sem `lazy: false` a criação só aconteceria no primeiro `watch`, que
+      // vem logo abaixo — mas explicitar deixa o gatilho a frio independente
+      // de quem lê primeiro.
+      lazy: false,
+      child: const AppHabitosDigitais(),
     ),
   );
 }
 
 class AppHabitosDigitais extends StatelessWidget {
-  const AppHabitosDigitais({
-    required this.repositorioMascote,
-    required this.repositorioSessoes,
-    required this.repositorioUso,
-    required this.medirUso,
-    super.key,
-  });
-
-  final RepositorioMascote repositorioMascote;
-  final RepositorioSessoes repositorioSessoes;
-  final RepositorioUso repositorioUso;
-  final Future<MedicaoUso> Function() medirUso;
+  const AppHabitosDigitais({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Habitos Digitais',
       theme: ThemeData(useMaterial3: true),
-      home: TelaFoco(
-        repositorioMascote: repositorioMascote,
-        repositorioSessoes: repositorioSessoes,
-        repositorioUso: repositorioUso,
-        medirUso: medirUso,
-      ),
+      // Sem parâmetros: a tela lê o EstadoApp registrado acima.
+      home: const TelaFoco(),
     );
   }
 }

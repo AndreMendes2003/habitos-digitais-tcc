@@ -1,16 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
-import '../dados/repositorio_mascote.dart';
-import '../dados/repositorio_sessoes.dart';
-import '../dados/repositorio_uso.dart';
 import '../diagnostico/tela_diagnostico_uso.dart';
-import '../dominio/controlador_mascote.dart';
 import '../dominio/controlador_sessao.dart';
-import '../dominio/controlador_uso.dart';
 import '../dominio/regras_energia.dart';
-import '../dominio/sessao_foco.dart';
-import '../uso/medicao_uso.dart';
+import '../estado/estado_mascote.dart';
 import 'widget_mascote.dart';
 
 /// Padrão todo numérico: não depende de dados de locale, então dispensa
@@ -19,151 +14,46 @@ final DateFormat _formatoInicio = DateFormat('dd/MM/yyyy HH:mm');
 
 /// Tela única do RF02 + RF01. Sem polimento: o objetivo é evidenciar o
 /// comportamento.
+///
+/// Não recebe nada: todo o estado vem do [EstadoApp] registrado acima do
+/// MaterialApp. Quem monta a tela — `main.dart` ou o teste de widget — é
+/// responsável por registrar o provider e por descartar o estado.
 class TelaFoco extends StatefulWidget {
-  const TelaFoco({
-    required this.repositorioMascote,
-    required this.repositorioSessoes,
-    required this.repositorioUso,
-    required this.medirUso,
-    super.key,
-  });
-
-  final RepositorioMascote repositorioMascote;
-  final RepositorioSessoes repositorioSessoes;
-  final RepositorioUso repositorioUso;
-
-  /// Injetada para que o widget test não precise do plugin usage_stats.
-  /// Em `main()` aponta para `ServicoUso.medirHoje`.
-  final Future<MedicaoUso> Function() medirUso;
+  const TelaFoco({super.key});
 
   @override
   State<TelaFoco> createState() => _TelaFocoState();
 }
 
+/// Stateful só pelo [WidgetsBindingObserver]: o ciclo de vida do Android é a
+/// única coisa que a tela ainda precisa escutar por conta própria. Nenhum
+/// estado de domínio mora aqui.
 class _TelaFocoState extends State<TelaFoco> with WidgetsBindingObserver {
-  final ControladorSessao _controlador = ControladorSessao();
-  late final ControladorMascote _controladorMascote;
-  late final ControladorUso _controladorUso;
-
-  /// Cache do histórico persistido, relido a cada sessão finalizada.
-  List<SessaoFoco> _historicoSalvo = const [];
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-
-    _controladorMascote = ControladorMascote(
-      inicial: widget.repositorioMascote.carregar(),
-      aoPersistir: widget.repositorioMascote.salvar,
-    );
-    _controladorUso = ControladorUso(
-      medir: widget.medirUso,
-      avaliacaoInicial: widget.repositorioUso.carregar(),
-      aoPersistir: widget.repositorioUso.salvar,
-    );
-    _historicoSalvo = widget.repositorioSessoes.todas();
-
-    // RF03/RF04: é aqui que o resultado da sessão vira ENERGIA e vai para o
-    // disco. O debugPrint continua servindo de evidência no device.
-    _controlador.aoFinalizarSessao = (sessao) async {
-      debugPrint('[RF02] $sessao');
-      await _controladorMascote.registrarSessao(sessao);
-      await widget.repositorioSessoes.adicionar(sessao);
-      if (mounted) {
-        setState(() {
-          _historicoSalvo = widget.repositorioSessoes.todas();
-        });
-      }
-      // RF04, gatilho 2: fim de sessão.
-      await _avaliarUso();
-    };
-
-    // RF04, gatilho 3: abertura a frio. O Flutter não emite `resumed` para o
-    // estado inicial, então sem isto o app só avaliaria depois de o usuário
-    // sair e voltar — justamente o cenário "reabrir o app" do requisito.
-    _avaliarUso();
-  }
-
-  /// Mede, e manda o delta para o ÚNICO ponto de escrita de energia.
-  ///
-  /// O ControladorUso calcula mas não aplica; `lib/uso/` só mede. A aplicação
-  /// acontece exclusivamente no ControladorMascote.
-  Future<void> _avaliarUso() async {
-    final delta = await _controladorUso.avaliar();
-    if (delta != 0) {
-      await _controladorMascote.registrarPenalidadeUso(delta);
-    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _controlador.dispose();
-    _controladorMascote.dispose();
-    _controladorUso.dispose();
     super.dispose();
   }
 
   /// RNF01: única ponte entre o ciclo de vida do Android e o domínio.
+  /// O critério de qual estado conta como saída mora no ControladorSessao.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // TODO(remover antes da entrega): log de diagnóstico do RNF01.
-    // Serve para levantar, no Samsung, quais estados o Android emite em cada
-    // cenário (barra de notificação, chamada, Home, switcher, tela apagando).
-    // A ação é deduzida comparando o antes/depois, e não reimplementando a
-    // regra de `paused` aqui — o critério mora no ControladorSessao.
-    final estavaAtiva = _controlador.emAndamento;
-
-    _controlador.aoMudarCicloDeVida(state);
-
-    final acao = estavaAtiva && !_controlador.emAndamento
-        ? 'interrompido'
-        : 'ignorado';
-    debugPrint(
-      '[LIFECYCLE] estado recebido: ${state.name} '
-      '| sessão ativa: ${estavaAtiva ? 'sim' : 'não'} '
-      '| ação: $acao',
-    );
-
-    // RF04, gatilho 1: voltou para o primeiro plano, hora de remedir o uso.
-    // Não interfere no RNF01 — `resumed` continua não encerrando sessão.
-    if (state == AppLifecycleState.resumed) {
-      _avaliarUso();
-    }
+    context.read<EstadoApp>().aoMudarCicloDeVida(state);
   }
 
-  /// RF04, item 7: linha única de status. Sem tela nova.
-  Widget _statusRedesSociais() {
-    if (!_controladorUso.permissaoConcedida) {
-      // Item 6: sem permissão não se penaliza, mas o usuário precisa saber.
-      // O botão de conceder já existe na tela de diagnóstico (ícone no
-      // AppBar), então aqui basta sinalizar.
-      return const Text(
-        'Redes sociais hoje: permissão não concedida',
-        textAlign: TextAlign.center,
-        style: TextStyle(color: Colors.orange),
-      );
-    }
+  @override
+  Widget build(BuildContext context) => const _CorpoFoco();
+}
 
-    final minutos = _controladorUso.minutosHoje;
-    final limite = RegrasEnergia.limiteDiarioRedesSociaisMinutos;
-
-    return Text(
-      'Redes sociais hoje: $minutos min / $limite min',
-      textAlign: TextAlign.center,
-      style: TextStyle(
-        color: minutos > limite ? Colors.redAccent : null,
-        fontWeight: minutos > limite ? FontWeight.bold : null,
-      ),
-    );
-  }
-
-  String _formatar(Duration d) {
-    final minutos = d.inMinutes.toString().padLeft(2, '0');
-    final segundos = (d.inSeconds % 60).toString().padLeft(2, '0');
-    return '$minutos:$segundos';
-  }
+class _CorpoFoco extends StatelessWidget {
+  const _CorpoFoco();
 
   @override
   Widget build(BuildContext context) {
@@ -182,11 +72,10 @@ class _TelaFocoState extends State<TelaFoco> with WidgetsBindingObserver {
           ),
         ],
       ),
-      body: ListenableBuilder(
-        listenable: Listenable.merge(
-          [_controlador, _controladorMascote, _controladorUso],
-        ),
-        builder: (context, _) {
+      // Consumer, e não um watch no topo: só o corpo repinta a cada tick da
+      // sessão, como acontecia com o ListenableBuilder que estava aqui.
+      body: Consumer<EstadoApp>(
+        builder: (context, estado, _) {
           // Rolável: com o mascote no topo, o conteúdo fixo já não cabe na
           // altura de um celular pequeno. Column solta estourava o layout.
           //
@@ -201,25 +90,25 @@ class _TelaFocoState extends State<TelaFoco> with WidgetsBindingObserver {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                WidgetMascote(mascote: _controladorMascote.mascote),
+                WidgetMascote(mascote: estado.mascote),
                 const SizedBox(height: 8),
-                _statusRedesSociais(),
+                _statusRedesSociais(estado),
                 const Divider(height: 32),
-                _seletorDuracao(),
+                _seletorDuracao(estado),
                 const SizedBox(height: 24),
                 Center(
                   child: Text(
-                    _formatar(_controlador.tempoRestante),
+                    _formatar(estado.tempoRestante),
                     style: const TextStyle(fontSize: 64),
                   ),
                 ),
                 const SizedBox(height: 24),
-                _botaoPrincipal(),
+                _botaoPrincipal(estado),
                 const SizedBox(height: 24),
-                _resultado(),
-                if (_historicoSalvo.isNotEmpty) ...[
+                _resultado(estado),
+                if (estado.historico.isNotEmpty) ...[
                   const Divider(height: 32),
-                  ..._historico(),
+                  ..._historico(estado),
                 ],
               ],
             ),
@@ -229,7 +118,33 @@ class _TelaFocoState extends State<TelaFoco> with WidgetsBindingObserver {
     );
   }
 
-  Widget _seletorDuracao() {
+  /// RF04, item 7: linha única de status. Sem tela nova.
+  Widget _statusRedesSociais(EstadoApp estado) {
+    if (!estado.permissaoUsoConcedida) {
+      // Item 6: sem permissão não se penaliza, mas o usuário precisa saber.
+      // O botão de conceder já existe na tela de diagnóstico (ícone no
+      // AppBar), então aqui basta sinalizar.
+      return const Text(
+        'Redes sociais hoje: permissão não concedida',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: Colors.orange),
+      );
+    }
+
+    final minutos = estado.minutosRedesSociaisHoje;
+    final limite = RegrasEnergia.limiteDiarioRedesSociaisMinutos;
+
+    return Text(
+      'Redes sociais hoje: $minutos min / $limite min',
+      textAlign: TextAlign.center,
+      style: TextStyle(
+        color: minutos > limite ? Colors.redAccent : null,
+        fontWeight: minutos > limite ? FontWeight.bold : null,
+      ),
+    );
+  }
+
+  Widget _seletorDuracao(EstadoApp estado) {
     return SegmentedButton<Duration>(
       segments: [
         for (final d in ControladorSessao.duracoesDisponiveis)
@@ -238,17 +153,17 @@ class _TelaFocoState extends State<TelaFoco> with WidgetsBindingObserver {
             label: Text('${d.inMinutes} min'),
           ),
       ],
-      selected: {_controlador.duracaoAlvo},
-      onSelectionChanged: _controlador.emAndamento
+      selected: {estado.duracaoAlvo},
+      onSelectionChanged: estado.sessaoEmAndamento
           ? null
-          : (selecao) => _controlador.selecionarDuracao(selecao.first),
+          : (selecao) => estado.selecionarDuracao(selecao.first),
     );
   }
 
-  Widget _botaoPrincipal() {
-    return switch (_controlador.estado) {
+  Widget _botaoPrincipal(EstadoApp estado) {
+    return switch (estado.estadoSessao) {
       EstadoSessao.ocioso => FilledButton(
-          onPressed: _controlador.iniciar,
+          onPressed: estado.iniciarSessao,
           child: const Text('Iniciar foco'),
         ),
       EstadoSessao.emAndamento => const FilledButton(
@@ -256,14 +171,14 @@ class _TelaFocoState extends State<TelaFoco> with WidgetsBindingObserver {
           child: Text('Em foco — não saia do app'),
         ),
       EstadoSessao.finalizada => FilledButton(
-          onPressed: _controlador.reiniciar,
+          onPressed: estado.reiniciarSessao,
           child: const Text('Nova sessão'),
         ),
     };
   }
 
-  Widget _resultado() {
-    final sessao = _controlador.ultimaSessao;
+  Widget _resultado(EstadoApp estado) {
+    final sessao = estado.ultimaSessao;
     if (sessao == null) {
       return const Text(
         'Nenhuma sessão finalizada nesta execução.',
@@ -294,9 +209,9 @@ class _TelaFocoState extends State<TelaFoco> with WidgetsBindingObserver {
   /// Itens construídos de uma vez, dentro do scroll da página, em vez de um
   /// ListView aninhado: no MVP a lista é curta e assim não há dois scrolls
   /// disputando o gesto.
-  List<Widget> _historico() {
+  List<Widget> _historico(EstadoApp estado) {
     return [
-      for (final s in _historicoSalvo)
+      for (final s in estado.historico)
         ListTile(
           dense: true,
           leading: Icon(
@@ -307,5 +222,11 @@ class _TelaFocoState extends State<TelaFoco> with WidgetsBindingObserver {
           subtitle: Text('real: ${_formatar(s.duracaoReal)}'),
         ),
     ];
+  }
+
+  String _formatar(Duration d) {
+    final minutos = d.inMinutes.toString().padLeft(2, '0');
+    final segundos = (d.inSeconds % 60).toString().padLeft(2, '0');
+    return '$minutos:$segundos';
   }
 }
