@@ -41,3 +41,5 @@ Ferramenta: Claude (Anthropic), via Claude Code.
 | 2026-09-20 | `pubspec.yaml` | Modificado por IA: declara `assets/animacoes/`. |
 | 2026-09-20 | `test/ui/tela_foco_test.dart` | Modificado por IA, so o gesto: `ensureVisible` antes dos dois taps em "Iniciar foco", que o mascote maior empurrou para fora do viewport de 800x600. Nenhuma assercao ou cenario alterado. |
 | 2026-09-20 | `assets/animacoes/*.json`, `docs/assets.md` | NAO gerados por IA. Animacoes de terceiros (Abdul Latif / LottieFiles) e o registro de licenca escrito pelo autor; renomeados por IA para os nomes usados no codigo. |
+| 2026-09-20 | `lib/ui/componentes/animacoes_mascote.dart` | Modificado por IA: mapa `conteudo` com a caixa da arte dentro do canvas de cada animacao, medida renderizando 13 quadros de cada uma e tomando a uniao dos pixels nao transparentes. Os arquivos .json nao foram alterados. |
+| 2026-09-20 | `lib/ui/componentes/widget_mascote.dart` | Modificado por IA: recorta a viewBox em tempo de renderizacao (ClipRect + OverflowBox + Transform) para a arte preencher a caixa, e a caixa passou a ter altura fixa de 62% da largura em vez de ser quadrada. |

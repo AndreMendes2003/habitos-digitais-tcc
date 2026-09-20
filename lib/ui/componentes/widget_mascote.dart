@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 
@@ -29,8 +31,20 @@ class WidgetMascote extends StatelessWidget {
 
   /// Limites em pixels lógicos. Sem o teto, a animação domina a tela em
   /// tablet; sem o piso, some num celular estreito.
-  static const double _ladoMinimo = 140;
-  static const double _ladoMaximo = 260;
+  static const double _larguraMinima = 140;
+  static const double _larguraMaxima = 260;
+
+  /// Altura da caixa, como fração da largura.
+  ///
+  /// FIXA, e não derivada de cada animação: as três artes têm proporções
+  /// diferentes (altura/largura de 0.51 a 0.70), e uma caixa que
+  /// acompanhasse cada uma mudaria de altura no meio do fade, empurrando o
+  /// rótulo e a barra de energia a cada troca de estado.
+  ///
+  /// O valor é o aspecto da arte mais larga das três — a que mais restringe.
+  /// Assim nenhuma precisa ser cortada para caber, e a que sobra folga fica
+  /// centralizada em vez de flutuar num quadrado.
+  static const double _alturaRelativa = 0.62;
 
   final Mascote mascote;
 
@@ -43,14 +57,15 @@ class WidgetMascote extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cor = _cor();
-    final lado = (MediaQuery.sizeOf(context).width * _fracaoDaLargura)
-        .clamp(_ladoMinimo, _ladoMaximo);
+    final largura = (MediaQuery.sizeOf(context).width * _fracaoDaLargura)
+        .clamp(_larguraMinima, _larguraMaxima);
+    final altura = largura * _alturaRelativa;
 
     return Column(
       children: [
         SizedBox(
-          height: lado,
-          width: lado,
+          height: altura,
+          width: largura,
           child: AnimatedSwitcher(
             duration: duracaoTransicao,
             // Os dois lados do fade se sobrepõem no mesmo espaço; sem isto o
@@ -60,7 +75,7 @@ class WidgetMascote extends StatelessWidget {
               alignment: Alignment.center,
               children: [...anteriores, ?atual],
             ),
-            child: _animacao(lado),
+            child: _animacao(largura, altura),
           ),
         ),
         const SizedBox(height: Espacamento.xs),
@@ -89,7 +104,7 @@ class WidgetMascote extends StatelessWidget {
 
   /// A chave por estado é o que faz o AnimatedSwitcher perceber a troca — sem
   /// ela ele veria o mesmo tipo de widget e trocaria a composição sem fade.
-  Widget _animacao(double lado) {
+  Widget _animacao(double largura, double altura) {
     final composicao = AnimacoesMascote.de(mascote.estado);
 
     if (composicao == null) {
@@ -97,18 +112,51 @@ class WidgetMascote extends StatelessWidget {
       // mesmo espaço para o layout não mudar conforme a animação chega.
       return SizedBox(
         key: ValueKey('sem-animacao-${mascote.estado.name}'),
-        height: lado,
-        width: lado,
+        height: altura,
+        width: largura,
       );
     }
 
-    return Lottie(
+    final recorte = AnimacoesMascote.conteudoComFolga(mascote.estado);
+
+    // Lado do canvas QUADRADO em que a composição é desenhada, escolhido para
+    // que só o recorte preencha a caixa. Contain e não cover: cobrir cortaria
+    // orelha, rabo ou os corações que flutuam acima do gato.
+    final ladoCanvas = math.min(
+      largura / recorte.width,
+      altura / recorte.height,
+    );
+
+    // Canto superior esquerdo do canvas, de modo que o centro do recorte caia
+    // no centro da caixa.
+    final deslocamento = Offset(
+      (largura - recorte.width * ladoCanvas) / 2 - recorte.left * ladoCanvas,
+      (altura - recorte.height * ladoCanvas) / 2 - recorte.top * ladoCanvas,
+    );
+
+    return ClipRect(
       key: ValueKey(mascote.estado),
-      composition: composicao,
-      height: lado,
-      width: lado,
-      fit: BoxFit.contain,
-      repeat: true,
+      child: SizedBox(
+        width: largura,
+        height: altura,
+        child: OverflowBox(
+          alignment: Alignment.topLeft,
+          minWidth: 0,
+          minHeight: 0,
+          maxWidth: double.infinity,
+          maxHeight: double.infinity,
+          child: Transform.translate(
+            offset: deslocamento,
+            child: Lottie(
+              composition: composicao,
+              width: ladoCanvas,
+              height: ladoCanvas,
+              fit: BoxFit.contain,
+              repeat: true,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
