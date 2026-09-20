@@ -16,10 +16,30 @@ Limiares 70/30.
 Todos provisórios, a calibrar no teste piloto. Manter em arquivo único
 e nomeados — nunca literais espalhados no código.
 
+## Requisitos em andamento
+
+RF07 (histórico diário e sequência) — DENTRO do escopo desde o
+replanejamento de 11/09. Já implementados os dados e a regra: registro
+diário em caixa Hive própria (lib/dominio/registro_diario.dart,
+lib/dados/repositorio_historico.dart) e cálculo de sequência
+(lib/dominio/calculo_sequencia.dart), expostos no EstadoApp. A camada
+visual ainda não existe.
+
+## Restrições de plataforma
+
+Histórico retroativo do UsageStatsManager limitado a ~7 dias — medido
+no S23 pelo spike F2.0, evidência em
+docs/evidencias/F20_retencao_usage_s23.csv. Além desses ~7 dias o
+INTERVAL_BEST devolve o bucket semanal ou mensal ecoado em cada dia da
+faixa, e não dias de verdade.
+
+Consequência direta para o RF07: o registro diário PRECISA ser gravado
+no dia corrente. Não é reconstruível depois — um dia perdido é perdido.
+
 ## Fora do escopo do MVP
 
-RF05 (loja), RF06 (minigames), RF07 (histórico visual), RNF02 (nuvem),
-animações Rive/Lottie. Não implementar, não sugerir.
+RF05 (loja), RF06 (minigames), notificações locais, sync em nuvem
+(RNF02). Não implementar, não sugerir.
 
 ## Registro de IA
 

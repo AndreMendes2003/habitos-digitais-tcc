@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 
+import 'dados/repositorio_historico.dart';
 import 'dados/repositorio_mascote.dart';
 import 'dados/repositorio_sessoes.dart';
 import 'dados/repositorio_uso.dart';
@@ -24,6 +25,9 @@ Future<void> main() async {
   final caixaUso = await Hive.openBox<Map<dynamic, dynamic>>(
     RepositorioUso.nomeCaixa,
   );
+  final caixaHistorico = await Hive.openBox<Map<dynamic, dynamic>>(
+    RepositorioHistorico.nomeCaixa,
+  );
 
   runApp(
     // Acima do MaterialApp de propósito: o EstadoApp sobrevive a qualquer
@@ -34,6 +38,7 @@ Future<void> main() async {
         repositorioMascote: RepositorioMascote(caixaMascote),
         repositorioSessoes: RepositorioSessoes(caixaSessoes),
         repositorioUso: RepositorioUso(caixaUso),
+        repositorioHistorico: RepositorioHistorico(caixaHistorico),
         medirUso: ServicoUso().medirHoje,
       ),
       // Sem `lazy: false` a criação só aconteceria no primeiro `watch`, que

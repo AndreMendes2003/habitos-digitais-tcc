@@ -19,13 +19,16 @@ library;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart' show AppLifecycleState;
 
+import '../dados/repositorio_historico.dart';
 import '../dados/repositorio_mascote.dart';
 import '../dados/repositorio_sessoes.dart';
 import '../dados/repositorio_uso.dart';
 import '../dominio/controlador_mascote.dart';
 import '../dominio/controlador_sessao.dart';
+import '../dominio/calculo_sequencia.dart';
 import '../dominio/controlador_uso.dart';
 import '../dominio/mascote.dart';
+import '../dominio/registro_diario.dart';
 import '../dominio/sessao_foco.dart';
 import '../uso/medicao_uso.dart';
 
@@ -34,8 +37,13 @@ class EstadoApp extends ChangeNotifier {
     required RepositorioMascote repositorioMascote,
     required RepositorioSessoes repositorioSessoes,
     required RepositorioUso repositorioUso,
+    required RepositorioHistorico repositorioHistorico,
     required Future<MedicaoUso> Function() medirUso,
+    DateTime Function()? relogio,
   })  :
+        // ignore: prefer_initializing_formals
+        _repositorioHistorico = repositorioHistorico,
+        _relogio = relogio ?? DateTime.now,
         // Formal inicializador (`this._repositorioSessoes`) deixaria o nome
         // privado vazando para quem constroi a classe.
         // ignore: prefer_initializing_formals
@@ -51,6 +59,7 @@ class EstadoApp extends ChangeNotifier {
           aoPersistir: repositorioUso.salvar,
         ) {
     _historico = _repositorioSessoes.todas();
+    _historicoDiario = _repositorioHistorico.todos();
 
     // Um único repasse: cada controlador já notifica quando muda, e aqui isso
     // vira uma notificação só para a UI. Evita reimplementar, em cada ação,
@@ -74,15 +83,33 @@ class EstadoApp extends ChangeNotifier {
     // RF04, gatilho 3: abertura a frio. O Flutter não emite `resumed` para o
     // estado inicial, então sem isto o app só avaliaria depois de o usuário
     // sair e voltar — justamente o cenário "reabrir o app" do requisito.
-    avaliarUso();
+    primeiraAvaliacao = avaliarUso();
   }
 
   final RepositorioSessoes _repositorioSessoes;
+  final RepositorioHistorico _repositorioHistorico;
+
+  /// Só o RF07 usa este relógio. Os controladores seguem com os deles, para
+  /// que injetar um relógio aqui não mexa na contagem da sessão de foco.
+  final DateTime Function() _relogio;
+
   final ControladorSessao _controladorSessao;
   final ControladorMascote _controladorMascote;
   final ControladorUso _controladorUso;
 
+  /// Gatilho de abertura a frio, disparado no construtor.
+  ///
+  /// Exposto porque o construtor não pode ser `async` e mesmo assim inicia
+  /// trabalho que termina em disco: sem isto, nada no app consegue saber
+  /// quando a primeira avaliação acabou — e fechar as caixas do Hive antes
+  /// dela terminar estoura com "Box has already been closed".
+  late final Future<void> primeiraAvaliacao;
+
   List<SessaoFoco> _historico = const [];
+
+  /// Cache do histórico diário. Reler a caixa em cada getter faria disco a
+  /// cada repintura; a caixa só é relida quando o dia corrente é gravado.
+  List<RegistroDiario> _historicoDiario = const [];
 
   // --- Mascote (RF01) -------------------------------------------------------
 
@@ -117,6 +144,21 @@ class EstadoApp extends ChangeNotifier {
   int get minutosRedesSociaisHoje => _controladorUso.minutosHoje;
 
   bool get permissaoUsoConcedida => _controladorUso.permissaoConcedida;
+
+  // --- Histórico diário e sequência (RF07) ----------------------------------
+
+  /// Dias consecutivos dentro do limite até hoje. Lacuna atravessa.
+  int get sequenciaAtual =>
+      CalculoSequencia.atual(_historicoDiario, _relogio());
+
+  /// Maior sequência já alcançada, a corrente inclusive.
+  int get maiorSequencia =>
+      CalculoSequencia.maior(_historicoDiario, _relogio());
+
+  /// Registros dos últimos 30 dias em ordem cronológica. Dias sem registro
+  /// simplesmente não aparecem — a ausência É a lacuna.
+  List<RegistroDiario> get ultimos30Dias =>
+      CalculoSequencia.ultimosDias(_historicoDiario, _relogio());
 
   // --- Ações que a tela dispara ---------------------------------------------
 
@@ -167,6 +209,47 @@ class EstadoApp extends ChangeNotifier {
     if (delta != 0) {
       await _controladorMascote.registrarPenalidadeUso(delta);
     }
+    await _registrarDiaCorrente();
+  }
+
+  /// RF07: grava/atualiza o registro de hoje.
+  ///
+  /// Pendurado no FIM de [avaliarUso], e em nenhum outro lugar: assim o
+  /// histórico herda de graça os três gatilhos do RF04 (abertura a frio,
+  /// retorno ao primeiro plano, fim de sessão) e a idempotência que já existe
+  /// lá. Um segundo caminho de escrita abriria a porta para dois registros do
+  /// mesmo dia discordando entre si.
+  ///
+  /// A chave é a data, então reescrever o dia corrente é `put` no mesmo
+  /// registro — o dia vai sendo corrigido conforme avança.
+  Future<void> _registrarDiaCorrente() async {
+    final hoje = _relogio();
+    final diaCorrente = RegistroDiario.apenasData(hoje);
+
+    final sessoesDeHoje = _historico.where(
+      (sessao) => RegistroDiario.apenasData(sessao.inicioEm) == diaCorrente,
+    );
+
+    final registro = RegistroDiario(
+      dia: hoje,
+      minutosRedesSociais: _controladorUso.minutosHoje,
+      sessoesConcluidas: sessoesDeHoje.where((s) => s.foiConcluida).length,
+      sessoesInterrompidas: sessoesDeHoje.where((s) => !s.foiConcluida).length,
+      energiaFinal: _controladorMascote.mascote.energia,
+      // Sem permissão não houve leitura: o dia entra como LACUNA, não como
+      // dia cumprido com zero minuto.
+      houveMedicao: _controladorUso.permissaoConcedida,
+    );
+
+    // Só grava se algo mudou de fato — mesma guarda que o ControladorUso já
+    // aplica à avaliação diária. A avaliação dispara em todo resume; sem
+    // isto, abrir e fechar o app faria uma escrita em disco por vez sem
+    // nenhum dado novo.
+    if (_repositorioHistorico.carregarDia(diaCorrente) == registro) return;
+
+    await _repositorioHistorico.salvar(registro);
+    _historicoDiario = _repositorioHistorico.todos();
+    notifyListeners();
   }
 
   @override

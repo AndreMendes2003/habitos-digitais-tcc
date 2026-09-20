@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:habitos_digitais/dados/repositorio_historico.dart';
 import 'package:habitos_digitais/dados/repositorio_mascote.dart';
 import 'package:habitos_digitais/dados/repositorio_sessoes.dart';
 import 'package:habitos_digitais/dados/repositorio_uso.dart';
@@ -20,6 +21,7 @@ void main() {
   late RepositorioMascote repositorioMascote;
   late RepositorioSessoes repositorioSessoes;
   late RepositorioUso repositorioUso;
+  late RepositorioHistorico repositorioHistorico;
 
   /// Medição injetada: o widget test nunca toca no plugin usage_stats.
   late MedicaoUso medicao;
@@ -41,6 +43,11 @@ void main() {
     repositorioUso = RepositorioUso(
       await Hive.openBox<Map<dynamic, dynamic>>(RepositorioUso.nomeCaixa),
     );
+    repositorioHistorico = RepositorioHistorico(
+      await Hive.openBox<Map<dynamic, dynamic>>(
+        RepositorioHistorico.nomeCaixa,
+      ),
+    );
     medicao = const MedicaoUso(permissaoConcedida: true, minutos: 0);
     estado = null;
   });
@@ -56,41 +63,50 @@ void main() {
     }
   });
 
-  /// Mesma montagem de `main.dart`: o EstadoApp fica ACIMA do MaterialApp e
-  /// a tela só o consome. `medirUso` lê a variável `medicao` a cada chamada,
-  /// então os cenários continuam podendo trocá-la entre os resumes.
-  Widget montar() {
+  /// `medirUso` lê a variável `medicao` a cada chamada, então os cenários
+  /// continuam podendo trocá-la entre os resumes.
+  EstadoApp criarEstado() {
     final novo = EstadoApp(
       repositorioMascote: repositorioMascote,
       repositorioSessoes: repositorioSessoes,
       repositorioUso: repositorioUso,
+      repositorioHistorico: repositorioHistorico,
       medirUso: () async => medicao,
     );
     estado = novo;
-
-    return ChangeNotifierProvider<EstadoApp>.value(
-      value: novo,
-      child: const MaterialApp(home: TelaFoco()),
-    );
+    return novo;
   }
 
-  /// Monta a tela e deixa a avaliação de uso da abertura a frio assentar.
+  /// Mesma montagem de `main.dart`: o EstadoApp fica ACIMA do MaterialApp e
+  /// a tela só o consome.
+  Widget montar() => ChangeNotifierProvider<EstadoApp>.value(
+        value: estado!,
+        child: const MaterialApp(home: TelaFoco()),
+      );
+
+  /// Cria o estado, deixa o gatilho de abertura a frio assentar e só então
+  /// monta a tela.
   ///
   /// O gatilho não é mais o `initState` da tela: quem dispara o RF04 a frio é
-  /// o construtor do EstadoApp, criado em `montar()` logo antes do
-  /// `pumpWidget`.
+  /// o construtor do EstadoApp — e, desde o RF07, esse gatilho também grava o
+  /// registro do dia no Hive.
   ///
   /// LIMITE DO HARNESS: `pumpWidget` roda na zona fake-async e não pode ser
   /// chamado dentro de `runAsync`. Uma escrita no Hive iniciada aí nunca
   /// completa, e o `Hive.deleteFromDisk()` do tearDown fica esperando por ela
-  /// para sempre. Por isso os testes que exercitam a PENALIDADE fazem-na pelo
-  /// `resumed` (que passa por `runAsync` em `emitirCicloDeVida`), e a abertura
-  /// a frio é testada em cenários que não geram escrita nova.
+  /// para sempre. Por isso o EstadoApp NASCE dentro de `runAsync`, antes do
+  /// `pumpWidget`: assim a escrita da abertura a frio acontece em async real.
+  /// Não é contorno de teste — em `main.dart` ele também é construído antes
+  /// do `runApp`, fora de qualquer ciclo de vida de widget.
+  ///
+  /// Os testes que exercitam a PENALIDADE continuam fazendo-a pelo `resumed`,
+  /// que passa por `runAsync` em `emitirCicloDeVida`.
   Future<void> montarEAssentar(WidgetTester tester) async {
-    await tester.pumpWidget(montar());
     await tester.runAsync(() async {
+      criarEstado();
       await Future<void>.delayed(const Duration(milliseconds: 50));
     });
+    await tester.pumpWidget(montar());
     await tester.pump();
   }
 
