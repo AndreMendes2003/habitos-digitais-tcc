@@ -9,7 +9,7 @@ import 'dados/repositorio_uso.dart';
 import 'estado/estado_mascote.dart';
 import 'ui/componentes/animacoes_mascote.dart';
 import 'ui/tema/tema.dart';
-import 'ui/tela_foco.dart';
+import 'ui/casca_app.dart';
 import 'uso/servico_uso.dart';
 
 Future<void> main() async {
@@ -66,8 +66,9 @@ class AppHabitosDigitais extends StatelessWidget {
       title: 'Habitos Digitais',
       theme: Tema.claro,
       darkTheme: Tema.escuro,
-      // Sem parâmetros: a tela lê o EstadoApp registrado acima.
-      home: const TelaFoco(),
+      // Sem parâmetros: a casca e as tres abas leem o EstadoApp
+      // registrado acima.
+      home: const CascaApp(),
     );
   }
 }

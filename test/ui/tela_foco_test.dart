@@ -11,7 +11,7 @@ import 'package:habitos_digitais/dominio/mascote.dart';
 import 'package:habitos_digitais/dominio/regras_energia.dart';
 import 'package:habitos_digitais/dominio/sessao_foco.dart';
 import 'package:habitos_digitais/estado/estado_mascote.dart';
-import 'package:habitos_digitais/ui/tela_foco.dart';
+import 'package:habitos_digitais/ui/casca_app.dart';
 import 'package:habitos_digitais/uso/medicao_uso.dart';
 import 'package:hive/hive.dart';
 import 'package:provider/provider.dart';
@@ -78,11 +78,28 @@ void main() {
   }
 
   /// Mesma montagem de `main.dart`: o EstadoApp fica ACIMA do MaterialApp e
-  /// a tela só o consome.
+  /// a casca com as tres abas o consome.
   Widget montar() => ChangeNotifierProvider<EstadoApp>.value(
         value: estado!,
-        child: const MaterialApp(home: TelaFoco()),
+        child: const MaterialApp(home: CascaApp()),
       );
+
+  /// Troca de aba pela barra inferior.
+  ///
+  /// O conteudo que antes cabia numa tela so agora esta distribuido em tres,
+  /// e o IndexedStack deixa as nao selecionadas offstage — onde os finders
+  /// nao alcancam. Navegar ate a aba certa e o equivalente ao que o usuario
+  /// faz; nenhuma assercao mudou por causa disso.
+  ///
+  /// Busca dentro da NavigationBar porque o rotulo da aba selecionada
+  /// aparece tambem no titulo do AppBar.
+  Future<void> abrirAba(WidgetTester tester, String rotulo) async {
+    await tester.tap(find.descendant(
+      of: find.byType(NavigationBar),
+      matching: find.text(rotulo),
+    ));
+    await tester.pump();
+  }
 
   /// Cria o estado, deixa o gatilho de abertura a frio assentar e só então
   /// monta a tela.
@@ -146,6 +163,8 @@ void main() {
 
     expect(find.text('Neutro'), findsOneWidget);
     expect(find.text('Energia: 50/100'), findsOneWidget);
+
+    await abrirAba(tester, 'Foco');
     expect(find.text('5 min'), findsOneWidget);
     expect(find.text('15 min'), findsOneWidget);
     expect(find.text('25 min'), findsOneWidget);
@@ -156,6 +175,7 @@ void main() {
   testWidgets('RNF01: so o paused encerra a sessao como INTERROMPIDA',
       (tester) async {
     await montarEAssentar(tester);
+    await abrirAba(tester, 'Foco');
 
     await tester.tap(find.text('5 min'));
     await tester.pump();
@@ -202,6 +222,7 @@ void main() {
     await montarEAssentar(tester);
     expect(find.text('Energia: 50/100'), findsOneWidget);
 
+    await abrirAba(tester, 'Foco');
     await tester.tap(find.text('5 min'));
     await tester.pump();
     // O mascote animado ocupa ate 260px de altura, e no viewport de teste
@@ -221,6 +242,7 @@ void main() {
     ]);
 
     // A tela reflete a energia nova...
+    await abrirAba(tester, 'Casa');
     expect(find.text('Energia: 40/100'), findsOneWidget);
     expect(find.text('Neutro'), findsOneWidget);
 
@@ -255,6 +277,8 @@ void main() {
 
     expect(find.text('Energia: 65/100'), findsOneWidget);
     expect(find.text('Neutro'), findsOneWidget);
+
+    await abrirAba(tester, 'Sequência');
     expect(find.text('25 min — CONCLUÍDA'), findsOneWidget);
   });
 
@@ -368,5 +392,50 @@ void main() {
     // Só o segundo bloco novo é cobrado: 45 - 5, não 45 - 10.
     expect(find.text('Energia: 40/100'), findsOneWidget);
     expect(find.text('Redes sociais hoje: 180 min / 120 min'), findsOneWidget);
+  });
+
+  testWidgets('RNF01: trocar de aba NAO interrompe a sessao', (tester) async {
+    await montarEAssentar(tester);
+    await abrirAba(tester, 'Foco');
+
+    await tester.tap(find.text('5 min'));
+    await tester.pump();
+    await tester.ensureVisible(find.text('Iniciar foco'));
+    await tester.tap(find.text('Iniciar foco'));
+    await tester.pump();
+    expect(find.text('Em foco — não saia do app'), findsOneWidget);
+
+    // Passear pelas outras abas e mudanca de estado do Flutter: nao emite
+    // AppLifecycleState nenhum, entao nao chega ao ControladorSessao.
+    await abrirAba(tester, 'Casa');
+    await abrirAba(tester, 'Sequência');
+    await abrirAba(tester, 'Foco');
+
+    expect(find.text('Em foco — não saia do app'), findsOneWidget);
+    expect(find.text('INTERROMPIDA'), findsNothing);
+    expect(estado!.sessaoEmAndamento, isTrue);
+
+    // Encerra para nao deixar o ticker da sessao pendente no fim do teste.
+    await emitirCicloDeVida(tester, [AppLifecycleState.paused]);
+  });
+
+  testWidgets('abre na aba Foco quando ha sessao em andamento',
+      (tester) async {
+    await tester.runAsync(() async {
+      criarEstado();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    });
+
+    // Sessao ja correndo no momento em que a casca monta.
+    estado!.iniciarSessao();
+
+    await tester.pumpWidget(montar());
+    await tester.pump();
+
+    // O rotulo do botao em andamento so existe na aba Foco: encontra-lo
+    // prova que a casca abriu nela, e nao na Casa.
+    expect(find.text('Em foco — não saia do app'), findsOneWidget);
+
+    await emitirCicloDeVida(tester, [AppLifecycleState.paused]);
   });
 }
