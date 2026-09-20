@@ -1,0 +1,75 @@
+# F20 - retencao do UsageStatsManager, device fisico (Galaxy S23)
+# gerado em: 2026-09-20T11:30:35.338211 (horario local do aparelho)
+# janela por dia: meia-noite local ate meia-noite local seguinte
+# fonte: UsageStats.queryUsageStats, buckets somados por package
+# minutos = indicio de presenca de dado, nao medida de uso (ver spike)
+# redes sociais = ClassificadorRedesSociais.packages do projeto
+#
+# LEITURA DO RESULTADO (anotada em 2026-09-20, depois do pull):
+#
+# GRANULARIDADE DIARIA REAL: so de 2026-09-14 a 2026-09-20, sete dias.
+#
+# Antes disso o INTERVAL_BEST nao tem mais bucket diario e NAO devolve
+# vazio: devolve o bucket SEMANAL ou MENSAL que contem o dia pedido, e o
+# mesmo agregado reaparece identico em cada linha da faixa. As linhas
+# repetidas abaixo nao sao dias de historico, sao eco do mesmo bucket:
+#
+#   2026-09-06 a 2026-09-11   77;2182;664     semanal, repetido 6x
+#   2026-08-31 a 2026-09-05   122;7729;2379   semanal, repetido 6x
+#   2026-08-07 a 2026-08-29   111;9594;3548   mensal,  repetido 23x
+#
+# Dai 2026-08-15 marcar 9594 min: sao 160 horas num campo de um dia de 24.
+# E o total do mes, nao do dia. Ler essas linhas como uso diario
+# superestimaria o uso em mais de uma ordem de grandeza.
+#
+# CONSEQUENCIA PARA O RF04: nao ha como reconstruir historico retroativo
+# alem de ~7 dias neste aparelho. A medicao precisa ser feita no dia
+# corrente e persistida na hora - que e o que o ServicoUso ja faz. Isso
+# deixa de ser escolha de implementacao e passa a ser limitacao da
+# plataforma, com evidencia.
+data;pacotes_com_uso;minutos_totais;minutos_redes;top3
+2026-09-20;42;380;88;com.supercell.clashroyale=138min|com.instagram.android=88min|com.whatsapp=83min
+2026-09-19;43;705;300;com.instagram.android=300min|com.supercell.clashroyale=132min|com.google.android.youtube=95min
+2026-09-18;49;666;297;com.instagram.android=295min|com.google.android.youtube=114min|com.whatsapp=58min
+2026-09-17;50;850;223;com.google.android.youtube=223min|com.instagram.android=221min|com.supercell.clashroyale=138min
+2026-09-16;53;881;224;com.google.android.youtube=252min|com.instagram.android=224min|com.supercell.clashroyale=178min
+2026-09-15;52;686;175;com.google.android.youtube=210min|com.instagram.android=175min|com.supercell.clashroyale=65min
+2026-09-14;41;855;162;com.google.android.youtube=449min|com.instagram.android=162min|com.sec.android.gallery3d=50min
+2026-09-13;77;2734;759;com.google.android.youtube=858min|com.instagram.android=757min|com.whatsapp=230min
+2026-09-12;52;746;163;com.whatsapp=180min|com.instagram.android=162min|com.android.chrome=138min
+2026-09-11;77;2182;664;com.instagram.android=640min|com.google.android.youtube=636min|com.whatsapp=244min
+2026-09-10;77;2182;664;com.instagram.android=640min|com.google.android.youtube=636min|com.whatsapp=244min
+2026-09-09;77;2182;664;com.instagram.android=640min|com.google.android.youtube=636min|com.whatsapp=244min
+2026-09-08;77;2182;664;com.instagram.android=640min|com.google.android.youtube=636min|com.whatsapp=244min
+2026-09-07;77;2182;664;com.instagram.android=640min|com.google.android.youtube=636min|com.whatsapp=244min
+2026-09-06;77;2182;664;com.instagram.android=640min|com.google.android.youtube=636min|com.whatsapp=244min
+2026-09-05;122;7729;2379;com.instagram.android=2351min|com.google.android.youtube=1811min|com.whatsapp=826min
+2026-09-04;122;7729;2379;com.instagram.android=2351min|com.google.android.youtube=1811min|com.whatsapp=826min
+2026-09-03;122;7729;2379;com.instagram.android=2351min|com.google.android.youtube=1811min|com.whatsapp=826min
+2026-09-02;122;7729;2379;com.instagram.android=2351min|com.google.android.youtube=1811min|com.whatsapp=826min
+2026-09-01;122;7729;2379;com.instagram.android=2351min|com.google.android.youtube=1811min|com.whatsapp=826min
+2026-08-31;122;7729;2379;com.instagram.android=2351min|com.google.android.youtube=1811min|com.whatsapp=826min
+2026-08-30;93;2609;912;com.instagram.android=909min|com.google.android.youtube=327min|com.whatsapp=308min
+2026-08-29;111;9594;3548;com.instagram.android=3430min|com.google.android.youtube=1852min|com.android.chrome=1212min
+2026-08-28;111;9594;3548;com.instagram.android=3430min|com.google.android.youtube=1852min|com.android.chrome=1212min
+2026-08-27;111;9594;3548;com.instagram.android=3430min|com.google.android.youtube=1852min|com.android.chrome=1212min
+2026-08-26;111;9594;3548;com.instagram.android=3430min|com.google.android.youtube=1852min|com.android.chrome=1212min
+2026-08-25;111;9594;3548;com.instagram.android=3430min|com.google.android.youtube=1852min|com.android.chrome=1212min
+2026-08-24;111;9594;3548;com.instagram.android=3430min|com.google.android.youtube=1852min|com.android.chrome=1212min
+2026-08-23;111;9594;3548;com.instagram.android=3430min|com.google.android.youtube=1852min|com.android.chrome=1212min
+2026-08-22;111;9594;3548;com.instagram.android=3430min|com.google.android.youtube=1852min|com.android.chrome=1212min
+2026-08-21;111;9594;3548;com.instagram.android=3430min|com.google.android.youtube=1852min|com.android.chrome=1212min
+2026-08-20;111;9594;3548;com.instagram.android=3430min|com.google.android.youtube=1852min|com.android.chrome=1212min
+2026-08-19;111;9594;3548;com.instagram.android=3430min|com.google.android.youtube=1852min|com.android.chrome=1212min
+2026-08-18;111;9594;3548;com.instagram.android=3430min|com.google.android.youtube=1852min|com.android.chrome=1212min
+2026-08-17;111;9594;3548;com.instagram.android=3430min|com.google.android.youtube=1852min|com.android.chrome=1212min
+2026-08-16;111;9594;3548;com.instagram.android=3430min|com.google.android.youtube=1852min|com.android.chrome=1212min
+2026-08-15;111;9594;3548;com.instagram.android=3430min|com.google.android.youtube=1852min|com.android.chrome=1212min
+2026-08-14;111;9594;3548;com.instagram.android=3430min|com.google.android.youtube=1852min|com.android.chrome=1212min
+2026-08-13;111;9594;3548;com.instagram.android=3430min|com.google.android.youtube=1852min|com.android.chrome=1212min
+2026-08-12;111;9594;3548;com.instagram.android=3430min|com.google.android.youtube=1852min|com.android.chrome=1212min
+2026-08-11;111;9594;3548;com.instagram.android=3430min|com.google.android.youtube=1852min|com.android.chrome=1212min
+2026-08-10;111;9594;3548;com.instagram.android=3430min|com.google.android.youtube=1852min|com.android.chrome=1212min
+2026-08-09;111;9594;3548;com.instagram.android=3430min|com.google.android.youtube=1852min|com.android.chrome=1212min
+2026-08-08;111;9594;3548;com.instagram.android=3430min|com.google.android.youtube=1852min|com.android.chrome=1212min
+2026-08-07;111;9594;3548;com.instagram.android=3430min|com.google.android.youtube=1852min|com.android.chrome=1212min

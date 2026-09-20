@@ -38,6 +38,10 @@ dependencies:
   intl: ^0.20.3
   hive: ^2.2.3
   hive_flutter: ^1.1.0
+  # Explicito porque o spike F20 usa getExternalStorageDirectory direto.
+  # Ja vinha como dependencia transitiva do hive_flutter; depender de
+  # transitiva quebra em qualquer upgrade.
+  path_provider: ^2.1.4
 
 dev_dependencies:
   flutter_test:
