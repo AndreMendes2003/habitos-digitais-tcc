@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../dominio/mascote.dart';
+import 'tema/cores.dart';
+import 'tema/espacamento.dart';
+import 'tema/tipografia.dart';
 
 /// Mascote no topo da tela de foco (RF01).
 ///
@@ -17,10 +20,13 @@ class WidgetMascote extends StatelessWidget {
         EstadoMascote.cansado => '😴',
       };
 
+  /// As cores de estado vêm da paleta, não de `Colors.*`: são a leitura
+  /// visual da FSM, então precisam ser as mesmas em qualquer tela que venha
+  /// a mostrar o mascote.
   Color _cor(BuildContext context) => switch (mascote.estado) {
-        EstadoMascote.feliz => Colors.green,
-        EstadoMascote.neutro => Colors.amber.shade700,
-        EstadoMascote.cansado => Colors.redAccent,
+        EstadoMascote.feliz => Cores.feliz,
+        EstadoMascote.neutro => Cores.neutro,
+        EstadoMascote.cansado => Cores.cansado,
       };
 
   @override
@@ -29,23 +35,28 @@ class WidgetMascote extends StatelessWidget {
 
     return Column(
       children: [
+        // Emoji não leva família tipográfica: quem o desenha é a fonte de
+        // emoji do sistema, e forçar Nunito aqui não mudaria nada.
         Text(_emoji, style: const TextStyle(fontSize: 56)),
-        const SizedBox(height: 4),
+        const SizedBox(height: Espacamento.xs),
         Text(
           mascote.estado.rotulo,
-          style: TextStyle(
+          // 18 fica entre `corpo` (16) e `titulo` (24). Preservado como está
+          // para não mexer no layout nesta passada; a escala será revista na
+          // fase visual.
+          style: Tipografia.corpo.copyWith(
             fontSize: 18,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w700,
             color: cor,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: Espacamento.sm),
         LinearProgressIndicator(
           value: mascote.proporcaoEnergia,
           minHeight: 10,
           color: cor,
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: Espacamento.xs),
         Text('Energia: ${mascote.energia}/100'),
       ],
     );

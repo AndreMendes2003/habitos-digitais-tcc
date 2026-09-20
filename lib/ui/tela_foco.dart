@@ -6,6 +6,10 @@ import '../diagnostico/tela_diagnostico_uso.dart';
 import '../dominio/controlador_sessao.dart';
 import '../dominio/regras_energia.dart';
 import '../estado/estado_mascote.dart';
+import 'componentes/botao_principal.dart';
+import 'tema/cores.dart';
+import 'tema/espacamento.dart';
+import 'tema/tipografia.dart';
 import 'widget_mascote.dart';
 
 /// Padrão todo numérico: não depende de dados de locale, então dispensa
@@ -86,28 +90,33 @@ class _CorpoFoco extends StatelessWidget {
           final recuoInferior = MediaQuery.viewPaddingOf(context).bottom;
 
           return SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + recuoInferior),
+            padding: EdgeInsets.fromLTRB(
+              Espacamento.lg,
+              Espacamento.lg,
+              Espacamento.lg,
+              Espacamento.lg + recuoInferior,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 WidgetMascote(mascote: estado.mascote),
-                const SizedBox(height: 8),
+                const SizedBox(height: Espacamento.sm),
                 _statusRedesSociais(context, estado),
-                const Divider(height: 32),
+                const Divider(height: Espacamento.xxl),
                 _seletorDuracao(estado),
-                const SizedBox(height: 24),
+                const SizedBox(height: Espacamento.xl),
                 Center(
                   child: Text(
                     _formatar(estado.tempoRestante),
-                    style: const TextStyle(fontSize: 64),
+                    style: Tipografia.cronometro,
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: Espacamento.xl),
                 _botaoPrincipal(estado),
-                const SizedBox(height: 24),
+                const SizedBox(height: Espacamento.xl),
                 _resultado(estado),
                 if (estado.historico.isNotEmpty) ...[
-                  const Divider(height: 32),
+                  const Divider(height: Espacamento.xxl),
                   ..._historico(estado),
                 ],
               ],
@@ -126,7 +135,9 @@ class _CorpoFoco extends StatelessWidget {
       return Text(
         'Redes sociais hoje: medindo...',
         textAlign: TextAlign.center,
-        style: TextStyle(color: Theme.of(context).disabledColor),
+        style: Tipografia.corpo.copyWith(
+          color: Theme.of(context).disabledColor,
+        ),
       );
     }
 
@@ -134,10 +145,12 @@ class _CorpoFoco extends StatelessWidget {
       // Item 6: sem permissão não se penaliza, mas o usuário precisa saber.
       // O botão de conceder já existe na tela de diagnóstico (ícone no
       // AppBar), então aqui basta sinalizar.
-      return const Text(
+      // `neutro`, e não `alerta`: falta de permissão é uma pendência de
+      // configuração, não o excesso de uso que a cor de alerta sinaliza.
+      return Text(
         'Redes sociais hoje: permissão não concedida',
         textAlign: TextAlign.center,
-        style: TextStyle(color: Colors.orange),
+        style: Tipografia.corpo.copyWith(color: Cores.neutro),
       );
     }
 
@@ -147,9 +160,10 @@ class _CorpoFoco extends StatelessWidget {
     return Text(
       'Redes sociais hoje: $minutos min / $limite min',
       textAlign: TextAlign.center,
-      style: TextStyle(
-        color: minutos > limite ? Colors.redAccent : null,
-        fontWeight: minutos > limite ? FontWeight.bold : null,
+      style: Tipografia.corpo.copyWith(
+        // Único uso legítimo de `alerta`: passou do limite diário.
+        color: minutos > limite ? Cores.alerta : null,
+        fontWeight: minutos > limite ? FontWeight.w700 : null,
       ),
     );
   }
@@ -172,17 +186,18 @@ class _CorpoFoco extends StatelessWidget {
 
   Widget _botaoPrincipal(EstadoApp estado) {
     return switch (estado.estadoSessao) {
-      EstadoSessao.ocioso => FilledButton(
+      EstadoSessao.ocioso => BotaoPrincipal(
+          rotulo: 'Iniciar foco',
           onPressed: estado.iniciarSessao,
-          child: const Text('Iniciar foco'),
         ),
-      EstadoSessao.emAndamento => const FilledButton(
+      // Sem callback: desabilitado sai do mesmo dado que o comportamento.
+      EstadoSessao.emAndamento => const BotaoPrincipal(
+          rotulo: 'Em foco — não saia do app',
           onPressed: null,
-          child: Text('Em foco — não saia do app'),
         ),
-      EstadoSessao.finalizada => FilledButton(
+      EstadoSessao.finalizada => BotaoPrincipal(
+          rotulo: 'Nova sessão',
           onPressed: estado.reiniciarSessao,
-          child: const Text('Nova sessão'),
         ),
     };
   }
@@ -200,13 +215,14 @@ class _CorpoFoco extends StatelessWidget {
       children: [
         Text(
           sessao.status.rotulo,
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: sessao.foiConcluida ? Colors.green : Colors.redAccent,
+          // Interrompida usa `cansado`, não `alerta`: abandonar uma sessão
+          // não é erro do usuário, e a cor de alerta é reservada ao excesso
+          // de uso de redes sociais.
+          style: Tipografia.titulo.copyWith(
+            color: sessao.foiConcluida ? Cores.feliz : Cores.cansado,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: Espacamento.sm),
         Text('Alvo: ${sessao.duracaoAlvo.inMinutes} min'),
         Text('Real: ${_formatar(sessao.duracaoReal)}'),
         Text('Início: ${_formatoInicio.format(sessao.inicioEm)}'),
@@ -226,7 +242,7 @@ class _CorpoFoco extends StatelessWidget {
           dense: true,
           leading: Icon(
             s.foiConcluida ? Icons.check_circle : Icons.cancel,
-            color: s.foiConcluida ? Colors.green : Colors.redAccent,
+            color: s.foiConcluida ? Cores.feliz : Cores.cansado,
           ),
           title: Text('${s.duracaoAlvo.inMinutes} min — ${s.status.rotulo}'),
           subtitle: Text('real: ${_formatar(s.duracaoReal)}'),

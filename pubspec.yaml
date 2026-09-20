@@ -43,6 +43,9 @@ dependencies:
   # transitiva quebra em qualquer upgrade.
   path_provider: ^2.1.4
   provider: ^6.1.2
+  google_fonts: ^6.2.1
+  # Dependencia adicionada a pedido; nenhuma animacao usa Lottie ainda.
+  lottie: ^3.1.2
 
 dev_dependencies:
   flutter_test:

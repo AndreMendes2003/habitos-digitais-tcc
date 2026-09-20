@@ -7,6 +7,7 @@ import 'dados/repositorio_mascote.dart';
 import 'dados/repositorio_sessoes.dart';
 import 'dados/repositorio_uso.dart';
 import 'estado/estado_mascote.dart';
+import 'ui/tema/tema.dart';
 import 'ui/tela_foco.dart';
 import 'uso/servico_uso.dart';
 
@@ -57,7 +58,8 @@ class AppHabitosDigitais extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Habitos Digitais',
-      theme: ThemeData(useMaterial3: true),
+      theme: Tema.claro,
+      darkTheme: Tema.escuro,
       // Sem parâmetros: a tela lê o EstadoApp registrado acima.
       home: const TelaFoco(),
     );

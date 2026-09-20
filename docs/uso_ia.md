@@ -27,3 +27,11 @@ Ferramenta: Claude (Anthropic), via Claude Code.
 | 2026-09-20 | `lib/estado/estado_mascote.dart` | Modificado por IA: getter `medicaoUsoPendente`, falso ate a primeira avaliacao terminar (inclusive quando a permissao e negada), com notifyListeners na transicao. Separa "ainda nao sei" de "medi, deu 0". |
 | 2026-09-20 | `lib/ui/tela_foco.dart` | Modificado por IA: a linha de redes sociais mostra "medindo..." enquanto `medicaoUsoPendente` for verdadeiro, em vez de afirmar 0 min antes de ter medido. |
 | 2026-09-20 | `test/estado/estado_app_test.dart` | Tres testes gerados por IA para o estado de carregamento: pendente antes e resolvido depois, permissao negada tambem resolve, e a notificacao na transicao. |
+| 2026-09-20 | `lib/ui/tema/cores.dart` | Gerado por IA. Paleta com variante clara e escura, mais o helper `tomEscuro()` que deriva a base do botao em vez de criar um token por variante. |
+| 2026-09-20 | `lib/ui/tema/tipografia.dart` | Gerado por IA. Escala Nunito via google_fonts: display/titulo/corpo/rotulo/micro, mais `cronometro` (64) documentado como fora da escala. |
+| 2026-09-20 | `lib/ui/tema/espacamento.dart` | Gerado por IA. Escala de 4 (4-48) e raios (card 16, botao 12, pill). |
+| 2026-09-20 | `lib/ui/tema/tema.dart` | Gerado por IA. ThemeData claro e escuro a partir dos tokens, com ColorScheme.fromSeed para os papeis derivados do Material 3. |
+| 2026-09-20 | `lib/ui/componentes/botao_principal.dart` | Gerado por IA. Botao com base solida de 4px em tom derivado da propria cor, que some ao pressionar enquanto a face desce os mesmos 4px (altura total constante), com HapticFeedback. Variantes primario/secundario; `onPressed: null` desabilita. |
+| 2026-09-20 | `lib/ui/tela_foco.dart`, `lib/ui/widget_mascote.dart` | Modificados por IA: cores e fontes hardcoded trocadas pelos tokens e FilledButton trocado por BotaoPrincipal. Layout, textos e ordem dos widgets inalterados. |
+| 2026-09-20 | `lib/main.dart` | Modificado por IA: MaterialApp passou a usar Tema.claro e Tema.escuro. |
+| 2026-09-20 | `pubspec.yaml` | Modificado por IA: google_fonts e lottie adicionados a pedido explicito. Lottie ainda nao e usado em lugar nenhum. |
