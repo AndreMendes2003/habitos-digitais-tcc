@@ -8,6 +8,13 @@
 ///   cumprido  mediu e ficou dentro do limite    → soma 1
 ///   falhou    mediu e estourou o limite         → zera
 ///   lacuna    não mediu, ou não há registro     → ATRAVESSA
+///   baseline  dia anterior à instalação         → ATRAVESSA
+///
+/// O dia de BASELINE atravessa pelo mesmo motivo da lacuna, por outro
+/// caminho: ele tem dado, e dado bom, mas não foi vivido com o app. Contá-lo
+/// daria ao usuário uma sequência de 7 dias no primeiro boot — premiando
+/// comportamento anterior à intervenção e destruindo o valor da sequência
+/// como indicador de aderência.
 ///
 /// A lacuna não é neutra por conveniência: sem permissão de uso o app não
 /// tem como saber se o dia foi bom ou ruim. Contá-la como falha puniria o
@@ -38,6 +45,9 @@ class DiaDaSequencia {
   bool get falhou => registro?.falhou ?? false;
   bool get ehLacuna => !cumprido && !falhou;
 
+  /// Dia capturado retroativamente, anterior à instalação.
+  bool get ehBaseline => registro?.ehBaseline ?? false;
+
   bool ehHoje(DateTime hoje) => dia == RegistroDiario.apenasData(hoje);
 }
 
@@ -61,8 +71,11 @@ abstract final class CalculoSequencia {
     while (!cursor.isBefore(primeiroDia)) {
       final registro = porDia[RegistroDiario.chaveDe(cursor)];
 
-      if (registro != null && registro.falhou) break;
-      if (registro != null && registro.cumprido) sequencia++;
+      // Baseline: nem soma nem quebra, qualquer que seja a classificação.
+      if (registro != null && !registro.ehBaseline) {
+        if (registro.falhou) break;
+        if (registro.cumprido) sequencia++;
+      }
       // Lacuna (registro nulo ou sem medição): não soma, não quebra.
 
       cursor = _diaAnterior(cursor);
@@ -88,13 +101,15 @@ abstract final class CalculoSequencia {
     while (!cursor.isAfter(diaCorrente)) {
       final registro = porDia[RegistroDiario.chaveDe(cursor)];
 
-      if (registro != null && registro.falhou) {
-        corrente = 0;
-      } else if (registro != null && registro.cumprido) {
-        corrente++;
-        if (corrente > maiorSequencia) maiorSequencia = corrente;
+      if (registro != null && !registro.ehBaseline) {
+        if (registro.falhou) {
+          corrente = 0;
+        } else if (registro.cumprido) {
+          corrente++;
+          if (corrente > maiorSequencia) maiorSequencia = corrente;
+        }
       }
-      // Lacuna: `corrente` fica como está e a contagem atravessa.
+      // Lacuna e baseline: `corrente` fica como está e a contagem atravessa.
 
       cursor = _diaSeguinte(cursor);
     }

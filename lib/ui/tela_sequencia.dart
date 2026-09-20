@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -161,26 +163,85 @@ class _Celula extends StatelessWidget {
 
     return Tooltip(
       message: _descricao(),
-      child: Container(
-        decoration: BoxDecoration(
-          color: cor,
-          borderRadius: BorderRadius.circular(Espacamento.xs),
-          // O dia corrente é marcado por borda, e não por outra cor: ele já
-          // tem uma das três cores e precisa continuar legível como tal.
-          border: ehHoje
-              ? Border.all(color: tema.colorScheme.onSurface, width: 2)
-              : null,
+      child: CustomPaint(
+        // Tracejado para os dias de baseline, e NÃO opacidade: reduzir a
+        // opacidade do verde e do vermelho criaria quatro tons para o usuário
+        // decodificar. O traço é um eixo separado da cor — as três cores
+        // continuam significando exatamente as mesmas três coisas, e o
+        // pontilhado diz apenas "este dia é anterior ao app".
+        foregroundPainter:
+            dia.ehBaseline ? _BordaTracejada(cor: _corDoTraco(tema)) : null,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: cor,
+            borderRadius: BorderRadius.circular(Espacamento.xs),
+            // O dia corrente é marcado por borda sólida: ele já tem uma das
+            // três cores e precisa continuar legível como tal.
+            border: ehHoje
+                ? Border.all(color: tema.colorScheme.onSurface, width: 2)
+                : null,
+          ),
         ),
       ),
     );
   }
 
+  /// Traço em alto contraste com o fundo da tela, para o pontilhado ler tanto
+  /// sobre verde quanto sobre vermelho quanto sobre o cinza da lacuna.
+  Color _corDoTraco(ThemeData tema) => tema.colorScheme.onSurface;
+
   String _descricao() {
     final data = formatoData.format(dia.dia);
-    if (dia.cumprido) return '$data — dentro do limite';
-    if (dia.falhou) return '$data — acima do limite';
-    return '$data — sem medição';
+    final origem = dia.ehBaseline ? ' (antes do app)' : '';
+    if (dia.cumprido) return '$data — dentro do limite$origem';
+    if (dia.falhou) return '$data — acima do limite$origem';
+    return '$data — sem medição$origem';
   }
+}
+
+/// Borda pontilhada sobre a célula.
+///
+/// O Flutter não tem borda tracejada pronta; `PathMetric` permite percorrer o
+/// contorno arredondado e extrair pedaços alternados, o que acompanha os
+/// cantos em vez de desenhar um retângulo por cima deles.
+class _BordaTracejada extends CustomPainter {
+  const _BordaTracejada({required this.cor});
+
+  final Color cor;
+
+  /// Traço e vão grossos o bastante para ler numa célula de ~28px: um
+  /// pontilhado fino viraria ruído nesse tamanho.
+  static const double _traco = 3.5;
+  static const double _vao = 2.5;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final contorno = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          Offset.zero & size,
+          const Radius.circular(Espacamento.xs),
+        ),
+      );
+
+    final pincel = Paint()
+      ..color = cor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+
+    for (final metrica in contorno.computeMetrics()) {
+      var distancia = 0.0;
+      while (distancia < metrica.length) {
+        final fim = math.min(distancia + _traco, metrica.length);
+        canvas.drawPath(metrica.extractPath(distancia, fim), pincel);
+        distancia = fim + _vao;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_BordaTracejada anterior) => anterior.cor != cor;
 }
 
 /// Cor de uma célula. Fora das classes para a legenda usar exatamente a mesma
@@ -207,20 +268,38 @@ class _Legenda extends StatelessWidget {
         _item(tema, Cores.feliz, 'Dentro do limite'),
         _item(tema, Cores.alerta, 'Acima do limite'),
         _item(tema, tema.disabledColor.withValues(alpha: 0.25), 'Sem medição'),
+        // Quarto item num eixo diferente dos outros três: fala de origem do
+        // dado, não de classificação.
+        _item(
+          tema,
+          tema.disabledColor.withValues(alpha: 0.25),
+          'Antes do app',
+          tracejado: true,
+        ),
       ],
     );
   }
 
-  Widget _item(ThemeData tema, Color cor, String rotulo) {
+  Widget _item(
+    ThemeData tema,
+    Color cor,
+    String rotulo, {
+    bool tracejado = false,
+  }) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(
-            color: cor,
-            borderRadius: BorderRadius.circular(3),
+        CustomPaint(
+          foregroundPainter: tracejado
+              ? _BordaTracejada(cor: tema.colorScheme.onSurface)
+              : null,
+          child: Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              color: cor,
+              borderRadius: BorderRadius.circular(3),
+            ),
           ),
         ),
         const SizedBox(width: Espacamento.xs),

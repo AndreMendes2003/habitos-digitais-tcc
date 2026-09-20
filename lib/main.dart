@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 
+import 'dados/repositorio_baseline.dart';
 import 'dados/repositorio_historico.dart';
 import 'dados/repositorio_mascote.dart';
 import 'dados/repositorio_sessoes.dart';
 import 'dados/repositorio_uso.dart';
+import 'dominio/captura_baseline.dart';
 import 'estado/estado_mascote.dart';
 import 'ui/componentes/animacoes_mascote.dart';
 import 'ui/tema/tema.dart';
@@ -30,11 +32,19 @@ Future<void> main() async {
   final caixaHistorico = await Hive.openBox<Map<dynamic, dynamic>>(
     RepositorioHistorico.nomeCaixa,
   );
+  final caixaBaseline = await Hive.openBox<Map<dynamic, dynamic>>(
+    RepositorioBaseline.nomeCaixa,
+  );
 
   // As tres composicoes Lottie somam ~1,1MB de JSON. Decodificadas aqui, uma
   // vez, e nao na troca de estado — que acontece logo depois de o usuario
   // concluir ou interromper uma sessao, quando a tela precisa responder.
   await AnimacoesMascote.precarregar();
+
+  // Uma instância só: `medirHoje` e `medirDia` compartilham o mesmo núcleo,
+  // e é isso que garante que baseline e intervenção sejam comparáveis.
+  final servicoUso = ServicoUso();
+  final repositorioHistorico = RepositorioHistorico(caixaHistorico);
 
   runApp(
     // Acima do MaterialApp de propósito: o EstadoApp sobrevive a qualquer
@@ -45,8 +55,13 @@ Future<void> main() async {
         repositorioMascote: RepositorioMascote(caixaMascote),
         repositorioSessoes: RepositorioSessoes(caixaSessoes),
         repositorioUso: RepositorioUso(caixaUso),
-        repositorioHistorico: RepositorioHistorico(caixaHistorico),
-        medirUso: ServicoUso().medirHoje,
+        repositorioHistorico: repositorioHistorico,
+        medirUso: servicoUso.medirHoje,
+        capturaBaseline: CapturaBaseline(
+          medirDia: servicoUso.medirDia,
+          repositorioHistorico: repositorioHistorico,
+          repositorioBaseline: RepositorioBaseline(caixaBaseline),
+        ),
       ),
       // Sem `lazy: false` a criação só aconteceria no primeiro `watch`, que
       // vem logo abaixo — mas explicitar deixa o gatilho a frio independente

@@ -55,3 +55,12 @@ Ferramenta: Claude (Anthropic), via Claude Code.
 | 2026-09-20 | `lib/ui/tela_sequencia.dart` | Reescrita por IA: cabecalho com sequencia atual e recorde, grade de 30 dias colorida por estado com o dia corrente em borda, legenda e o historico de sessoes na base. Nada e calculado na tela. |
 | 2026-09-20 | `test/ui/tela_sequencia_test.dart` | Testes gerados por IA para a aba (7 casos), incluindo o estado vazio do primeiro uso. |
 | 2026-09-20 | `test/dominio/calculo_sequencia_test.dart`, `test/dados/repositorio_historico_test.dart` | Testes gerados por IA para o limite gravado e para a grade. |
+| 2026-09-20 | `lib/dominio/captura_baseline.dart` | Gerado por IA. Captura os 7 dias anteriores a instalacao na primeira medicao valida, grava como RegistroDiario marcado com ehBaseline e persiste a marca de "ja capturei". |
+| 2026-09-20 | `lib/dados/repositorio_baseline.dart` | Gerado por IA. Caixa Hive propria para a marca da captura. |
+| 2026-09-20 | `lib/uso/servico_uso.dart` | Modificado por IA: nucleo `medirJanela(inicio, fim)` extraido, com `medirHoje` e `medirDia` chamando-o. Garante que baseline e intervencao usem o mesmo metodo. |
+| 2026-09-20 | `lib/uso/medicao_uso.dart` | Modificado por IA: campo `houveDados`, que separa zero legitimo de janela sem dado. |
+| 2026-09-20 | `lib/dominio/registro_diario.dart` | Modificado por IA: campo `ehBaseline`. cumprido/falhou continuam refletindo a classificacao real do dia. |
+| 2026-09-20 | `lib/dominio/calculo_sequencia.dart` | Modificado por IA: dias de baseline atravessam a sequencia sem somar nem quebrar. |
+| 2026-09-20 | `lib/ui/tela_sequencia.dart` | Modificado por IA: celulas de baseline recebem borda tracejada (CustomPainter sobre PathMetric) em vez de opacidade, e a legenda ganhou o item "Antes do app". |
+| 2026-09-20 | `lib/estado/estado_mascote.dart`, `lib/main.dart` | Modificados por IA: wiring da CapturaBaseline, disparada ao fim de avaliarUso so com permissao concedida. |
+| 2026-09-20 | `test/dominio/captura_baseline_test.dart` | Testes gerados por IA para a captura (9 casos): janela varrida, classificacao preservada, lacuna x zero, falha isolada, captura unica e efeito nulo na sequencia. |

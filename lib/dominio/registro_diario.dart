@@ -28,6 +28,7 @@ class RegistroDiario {
     required this.energiaFinal,
     required this.houveMedicao,
     this.limiteDiarioMinutos = RegrasEnergia.limiteDiarioRedesSociaisMinutos,
+    this.ehBaseline = false,
   }) : dia = apenasData(dia);
 
   /// Dia sem nenhuma leitura de uso: o RF04 não mediu (sem permissão, ou
@@ -85,6 +86,19 @@ class RegistroDiario {
   /// fato esse.
   final int limiteDiarioMinutos;
 
+  /// Dia CAPTURADO RETROATIVAMENTE, anterior à instalação do app.
+  ///
+  /// É a linha de base: o comportamento do usuário antes de qualquer
+  /// intervenção. O dado é real e medido pelo mesmo método dos demais — o que
+  /// muda é que ele não foi VIVIDO com o app, e por isso não entra na
+  /// contagem de sequência.
+  ///
+  /// [cumprido] e [falhou] continuam refletindo a classificação verdadeira do
+  /// dia: se o usuário estourou o limite naquela terça, o registro diz isso,
+  /// e é justamente esse o dado da linha de base. Quem decide o que CONTA é
+  /// CalculoSequencia, não este modelo.
+  final bool ehBaseline;
+
   String get chave => chaveDe(dia);
 
   /// Lacuna: dia sem medição. Não conta a favor nem contra na sequência.
@@ -108,6 +122,7 @@ class RegistroDiario {
     int? energiaFinal,
     bool? houveMedicao,
     int? limiteDiarioMinutos,
+    bool? ehBaseline,
   }) {
     return RegistroDiario(
       dia: dia,
@@ -117,6 +132,7 @@ class RegistroDiario {
       energiaFinal: energiaFinal ?? this.energiaFinal,
       houveMedicao: houveMedicao ?? this.houveMedicao,
       limiteDiarioMinutos: limiteDiarioMinutos ?? this.limiteDiarioMinutos,
+      ehBaseline: ehBaseline ?? this.ehBaseline,
     );
   }
 
@@ -129,6 +145,7 @@ class RegistroDiario {
         'energiaFinal': energiaFinal,
         'houveMedicao': houveMedicao,
         'limiteDiarioMinutos': limiteDiarioMinutos,
+        'ehBaseline': ehBaseline,
       };
 
   /// Aceita `Map` cru porque o Hive devolve `Map<dynamic, dynamic>`.
@@ -146,6 +163,9 @@ class RegistroDiario {
       // Registro gravado antes deste campo existir: assume o limite atual.
       limiteDiarioMinutos: mapa['limiteDiarioMinutos'] as int? ??
           RegrasEnergia.limiteDiarioRedesSociaisMinutos,
+      // Registro anterior a este campo é, por definição, de intervenção:
+      // a captura de baseline nasceu junto com o campo.
+      ehBaseline: mapa['ehBaseline'] as bool? ?? false,
     );
   }
 
@@ -161,7 +181,8 @@ class RegistroDiario {
         other.sessoesInterrompidas == sessoesInterrompidas &&
         other.energiaFinal == energiaFinal &&
         other.houveMedicao == houveMedicao &&
-        other.limiteDiarioMinutos == limiteDiarioMinutos;
+        other.limiteDiarioMinutos == limiteDiarioMinutos &&
+        other.ehBaseline == ehBaseline;
   }
 
   @override
@@ -173,6 +194,7 @@ class RegistroDiario {
         energiaFinal,
         houveMedicao,
         limiteDiarioMinutos,
+        ehBaseline,
       );
 
   @override
@@ -181,5 +203,6 @@ class RegistroDiario {
       'sessoes: $sessoesConcluidas/$sessoesInterrompidas, '
       'energia: $energiaFinal, '
       'limite: $limiteDiarioMinutos, '
+      '${ehBaseline ? 'BASE ' : ''}'
       '${houveMedicao ? (cumprido ? 'cumprido' : 'falhou') : 'lacuna'})';
 }

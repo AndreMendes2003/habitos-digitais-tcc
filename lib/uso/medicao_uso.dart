@@ -9,15 +9,25 @@ class MedicaoUso {
     required this.permissaoConcedida,
     required this.minutos,
     this.packagesEncontrados = const {},
+    this.houveDados = true,
   });
 
   /// Medição impossível: sem PACKAGE_USAGE_STATS não há o que penalizar.
   const MedicaoUso.semPermissao()
       : permissaoConcedida = false,
         minutos = 0,
-        packagesEncontrados = const {};
+        packagesEncontrados = const {},
+        houveDados = false;
 
   final bool permissaoConcedida;
+
+  /// O UsageStatsManager devolveu ALGUMA coisa para a janela consultada.
+  ///
+  /// Separa "nenhum app da lista foi usado" (zero legítimo) de "o sistema
+  /// não tem dado desse período" (lacuna). Os dois dão `minutos == 0`, e sem
+  /// esta distinção um dia sem dado entraria no histórico como um dia
+  /// perfeito.
+  final bool houveDados;
 
   /// Minutos em primeiro plano hoje, somados apenas sobre os packages da
   /// lista do ClassificadorRedesSociais.

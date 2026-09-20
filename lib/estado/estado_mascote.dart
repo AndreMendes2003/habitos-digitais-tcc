@@ -26,6 +26,7 @@ import '../dados/repositorio_uso.dart';
 import '../dominio/controlador_mascote.dart';
 import '../dominio/controlador_sessao.dart';
 import '../dominio/calculo_sequencia.dart';
+import '../dominio/captura_baseline.dart';
 import '../dominio/controlador_uso.dart';
 import '../dominio/mascote.dart';
 import '../dominio/registro_diario.dart';
@@ -39,8 +40,11 @@ class EstadoApp extends ChangeNotifier {
     required RepositorioUso repositorioUso,
     required RepositorioHistorico repositorioHistorico,
     required Future<MedicaoUso> Function() medirUso,
+    CapturaBaseline? capturaBaseline,
     DateTime Function()? relogio,
   })  :
+        // ignore: prefer_initializing_formals
+        _capturaBaseline = capturaBaseline,
         // ignore: prefer_initializing_formals
         _repositorioHistorico = repositorioHistorico,
         _relogio = relogio ?? DateTime.now,
@@ -88,6 +92,12 @@ class EstadoApp extends ChangeNotifier {
 
   final RepositorioSessoes _repositorioSessoes;
   final RepositorioHistorico _repositorioHistorico;
+
+  /// Captura retroativa da linha de base, na primeira medição válida.
+  ///
+  /// Nulo quando não há captura a fazer — é uma etapa opcional do boot, não
+  /// um segundo caminho para o que o resto do EstadoApp já faz.
+  final CapturaBaseline? _capturaBaseline;
 
   /// Só o RF07 usa este relógio. Os controladores seguem com os deles, para
   /// que injetar um relógio aqui não mexa na contagem da sessão de foco.
@@ -227,11 +237,29 @@ class EstadoApp extends ChangeNotifier {
       await _controladorMascote.registrarPenalidadeUso(delta);
     }
     await _registrarDiaCorrente();
+    await _capturarBaselineSePrecisar();
 
     if (!_primeiraMedicaoConcluida) {
       _primeiraMedicaoConcluida = true;
       notifyListeners();
     }
+  }
+
+  /// Linha de base: os dias anteriores à instalação, capturados na PRIMEIRA
+  /// medição válida.
+  ///
+  /// Só com permissão concedida. Sem ela a varredura devolveria sete lacunas
+  /// e marcaria a captura como feita — queimando a única chance de registrar
+  /// a linha de base quando o usuário conceder a permissão depois.
+  Future<void> _capturarBaselineSePrecisar() async {
+    final captura = _capturaBaseline;
+    if (captura == null || !_controladorUso.permissaoConcedida) return;
+
+    final gravados = await captura.capturarSeNecessario(_relogio());
+    if (gravados == 0) return;
+
+    _historicoDiario = _repositorioHistorico.todos();
+    notifyListeners();
   }
 
   /// RF07: grava/atualiza o registro de hoje.
