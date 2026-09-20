@@ -5,12 +5,16 @@
 /// MVP.
 ///
 /// O QUE É ARMAZENADO x O QUE É DERIVADO: só entra na caixa o que não dá para
-/// recalcular. `limiteRespeitado` e `cumprido` são GETTERS, no mesmo critério
-/// que o projeto já aplica ao estado Feliz/Neutro/Cansado do mascote: gravar
-/// um valor que depende de RegrasEnergia criaria uma segunda fonte de verdade
-/// e, como os parâmetros são declaradamente provisórios, o histórico gravado
-/// antes de uma recalibração passaria a mentir sobre o próprio critério.
-/// Derivando, recalibrar o limite reinterpreta o histórico inteiro de graça.
+/// recalcular. `limiteRespeitado` e `cumprido` continuam sendo GETTERS — mas
+/// calculados sobre [limiteDiarioMinutos], que é GRAVADO.
+///
+/// POR QUE O LIMITE É GRAVADO: os parâmetros de RegrasEnergia são
+/// declaradamente provisórios, a calibrar no piloto. Se o critério viesse do
+/// valor ATUAL, subir o limite de 120 para 180 no meio do piloto reescreveria
+/// retroativamente o passado — dias que o usuário de fato estourou passariam
+/// a constar como cumpridos, e a sequência dele mudaria sozinha da noite para
+/// o dia. Gravando o limite vigente, cada dia é julgado pela régua que valia
+/// quando foi vivido, e a recalibração afeta só os dias seguintes.
 library;
 
 import 'regras_energia.dart';
@@ -23,11 +27,16 @@ class RegistroDiario {
     required this.sessoesInterrompidas,
     required this.energiaFinal,
     required this.houveMedicao,
+    this.limiteDiarioMinutos = RegrasEnergia.limiteDiarioRedesSociaisMinutos,
   }) : dia = apenasData(dia);
 
   /// Dia sem nenhuma leitura de uso: o RF04 não mediu (sem permissão, ou
   /// falha na consulta). Não é dia cumprido nem dia falhado — é lacuna.
-  factory RegistroDiario.lacuna(DateTime dia, {int energiaFinal = 0}) {
+  factory RegistroDiario.lacuna(
+    DateTime dia, {
+    int energiaFinal = 0,
+    int limiteDiarioMinutos = RegrasEnergia.limiteDiarioRedesSociaisMinutos,
+  }) {
     return RegistroDiario(
       dia: dia,
       minutosRedesSociais: 0,
@@ -35,6 +44,7 @@ class RegistroDiario {
       sessoesInterrompidas: 0,
       energiaFinal: energiaFinal,
       houveMedicao: false,
+      limiteDiarioMinutos: limiteDiarioMinutos,
     );
   }
 
@@ -67,15 +77,23 @@ class RegistroDiario {
   /// consulta bem-sucedida.
   final bool houveMedicao;
 
+  /// Limite diário de rede social EM VIGOR no dia, em minutos.
+  ///
+  /// Preenchido a partir de RegrasEnergia no momento da gravação. Registros
+  /// anteriores a este campo assumem o limite atual ao serem lidos — é a
+  /// única suposição possível, e vale para os dias em que o limite era de
+  /// fato esse.
+  final int limiteDiarioMinutos;
+
   String get chave => chaveDe(dia);
 
   /// Lacuna: dia sem medição. Não conta a favor nem contra na sequência.
   bool get ehLacuna => !houveMedicao;
 
-  /// Limite diário do RF04 respeitado. Lido de RegrasEnergia a cada chamada,
-  /// nunca gravado.
-  bool get limiteRespeitado =>
-      minutosRedesSociais <= RegrasEnergia.limiteDiarioRedesSociaisMinutos;
+  /// Limite do DIA respeitado. Usa o limite gravado no registro, e não o
+  /// valor atual de RegrasEnergia: o passado é julgado pela régua que valia
+  /// quando foi vivido.
+  bool get limiteRespeitado => minutosRedesSociais <= limiteDiarioMinutos;
 
   /// Critério de "dia cumprido": mediu, e ficou dentro do limite.
   bool get cumprido => houveMedicao && limiteRespeitado;
@@ -89,6 +107,7 @@ class RegistroDiario {
     int? sessoesInterrompidas,
     int? energiaFinal,
     bool? houveMedicao,
+    int? limiteDiarioMinutos,
   }) {
     return RegistroDiario(
       dia: dia,
@@ -97,6 +116,7 @@ class RegistroDiario {
       sessoesInterrompidas: sessoesInterrompidas ?? this.sessoesInterrompidas,
       energiaFinal: energiaFinal ?? this.energiaFinal,
       houveMedicao: houveMedicao ?? this.houveMedicao,
+      limiteDiarioMinutos: limiteDiarioMinutos ?? this.limiteDiarioMinutos,
     );
   }
 
@@ -108,6 +128,7 @@ class RegistroDiario {
         'sessoesInterrompidas': sessoesInterrompidas,
         'energiaFinal': energiaFinal,
         'houveMedicao': houveMedicao,
+        'limiteDiarioMinutos': limiteDiarioMinutos,
       };
 
   /// Aceita `Map` cru porque o Hive devolve `Map<dynamic, dynamic>`.
@@ -122,6 +143,9 @@ class RegistroDiario {
       sessoesInterrompidas: mapa['sessoesInterrompidas'] as int,
       energiaFinal: mapa['energiaFinal'] as int,
       houveMedicao: mapa['houveMedicao'] as bool,
+      // Registro gravado antes deste campo existir: assume o limite atual.
+      limiteDiarioMinutos: mapa['limiteDiarioMinutos'] as int? ??
+          RegrasEnergia.limiteDiarioRedesSociaisMinutos,
     );
   }
 
@@ -136,7 +160,8 @@ class RegistroDiario {
         other.sessoesConcluidas == sessoesConcluidas &&
         other.sessoesInterrompidas == sessoesInterrompidas &&
         other.energiaFinal == energiaFinal &&
-        other.houveMedicao == houveMedicao;
+        other.houveMedicao == houveMedicao &&
+        other.limiteDiarioMinutos == limiteDiarioMinutos;
   }
 
   @override
@@ -147,6 +172,7 @@ class RegistroDiario {
         sessoesInterrompidas,
         energiaFinal,
         houveMedicao,
+        limiteDiarioMinutos,
       );
 
   @override
@@ -154,5 +180,6 @@ class RegistroDiario {
       'min: $minutosRedesSociais, '
       'sessoes: $sessoesConcluidas/$sessoesInterrompidas, '
       'energia: $energiaFinal, '
+      'limite: $limiteDiarioMinutos, '
       '${houveMedicao ? (cumprido ? 'cumprido' : 'falhou') : 'lacuna'})';
 }

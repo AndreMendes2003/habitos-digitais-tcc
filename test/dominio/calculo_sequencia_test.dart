@@ -67,6 +67,60 @@ void main() {
     });
   });
 
+  group('limite gravado no registro', () {
+    test('o critério é o limite DO DIA, não o de RegrasEnergia hoje', () {
+      // Dia vivido sob um limite mais generoso: 150 min estouravam a regra
+      // atual (120), mas nao a que valia naquele dia.
+      final sobRegraAntiga = RegistroDiario(
+        dia: diasAtras(1),
+        minutosRedesSociais: 150,
+        sessoesConcluidas: 0,
+        sessoesInterrompidas: 0,
+        energiaFinal: 50,
+        houveMedicao: true,
+        limiteDiarioMinutos: 200,
+      );
+
+      expect(sobRegraAntiga.limiteDiarioMinutos, 200);
+      expect(sobRegraAntiga.limiteRespeitado, isTrue);
+      expect(sobRegraAntiga.cumprido, isTrue);
+      // Os mesmos 150 min sob a regra atual seriam falha.
+      expect(
+        150 > RegrasEnergia.limiteDiarioRedesSociaisMinutos,
+        isTrue,
+        reason: 'o teste perde o sentido se o limite atual passar de 150',
+      );
+    });
+
+    test('limite ausente assume o valor atual', () {
+      final semLimiteExplicito = dia(0, minutos: dentroDoLimite);
+
+      expect(
+        semLimiteExplicito.limiteDiarioMinutos,
+        RegrasEnergia.limiteDiarioRedesSociaisMinutos,
+      );
+    });
+
+    test('a sequência respeita o limite de cada dia', () {
+      // hoje-1 estourou a regra atual mas nao a dele; nao pode quebrar.
+      final registros = [
+        cumprido(2),
+        RegistroDiario(
+          dia: diasAtras(1),
+          minutosRedesSociais: 150,
+          sessoesConcluidas: 0,
+          sessoesInterrompidas: 0,
+          energiaFinal: 50,
+          houveMedicao: true,
+          limiteDiarioMinutos: 200,
+        ),
+        cumprido(0),
+      ];
+
+      expect(CalculoSequencia.atual(registros, hoje), 3);
+    });
+  });
+
   group('sequência atual', () {
     test('histórico vazio: primeiro dia de uso não tem sequência', () {
       expect(CalculoSequencia.atual(const [], hoje), 0);
@@ -183,6 +237,48 @@ void main() {
       final registros = [falhou(2), falhou(1), falhou(0)];
 
       expect(CalculoSequencia.maior(registros, hoje), 0);
+    });
+  });
+
+  group('grade de dias', () {
+    test('tem sempre uma célula por dia, mesmo com histórico vazio', () {
+      final grade = CalculoSequencia.grade(const [], hoje);
+
+      // Tamanho fixo: a grade nao pode encolher conforme o historico cresce.
+      expect(grade, hasLength(30));
+      expect(grade.every((d) => d.ehLacuna), isTrue);
+      expect(grade.every((d) => d.registro == null), isTrue);
+    });
+
+    test('sai em ordem cronológica e termina em hoje', () {
+      final grade = CalculoSequencia.grade([cumprido(0)], hoje);
+
+      expect(grade.first.dia, diasAtras(29));
+      expect(grade.last.dia, diasAtras(0));
+      expect(grade.last.ehHoje(hoje), isTrue);
+      expect(grade.first.ehHoje(hoje), isFalse);
+    });
+
+    test('classifica cada célula pelo registro do dia', () {
+      final grade = CalculoSequencia.grade(
+        [cumprido(2), falhou(1), lacuna(0)],
+        hoje,
+      );
+      DiaDaSequencia celula(int atras) =>
+          grade.firstWhere((d) => d.dia == diasAtras(atras));
+
+      expect(celula(2).cumprido, isTrue);
+      expect(celula(1).falhou, isTrue);
+      // Registro sem medicao e dia sem registro caem na mesma categoria:
+      // para quem olha a grade, os dois sao "nao sei".
+      expect(celula(0).ehLacuna, isTrue);
+      expect(celula(5).ehLacuna, isTrue);
+    });
+
+    test('dia fora da janela não aparece', () {
+      final grade = CalculoSequencia.grade([cumprido(40)], hoje);
+
+      expect(grade.every((d) => d.registro == null), isTrue);
     });
   });
 

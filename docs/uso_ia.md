@@ -49,3 +49,9 @@ Ferramenta: Claude (Anthropic), via Claude Code.
 | 2026-09-20 | `lib/ui/formato_duracao.dart`, `lib/ui/diagnostico_atalho.dart` | Gerados por IA. Extracoes da TelaFoco antiga: o formatador mm:ss agora serve duas abas, e o atalho de diagnostico passou ao AppBar da casca. |
 | 2026-09-20 | `lib/main.dart` | Modificado por IA: `home` passou de TelaFoco para CascaApp. |
 | 2026-09-20 | `test/ui/tela_foco_test.dart` | Modificado por IA: monta a CascaApp e navega ate a aba onde cada widget passou a morar (helper `abrirAba`). Nenhuma assercao ou cenario alterado. Dois testes novos: troca de aba nao interrompe sessao, e abertura na aba Foco com sessao em andamento. |
+| 2026-09-20 | `lib/dominio/registro_diario.dart` | Modificado por IA: campo `limiteDiarioMinutos`, preenchido de RegrasEnergia na gravacao. `limiteRespeitado`/`cumprido` passaram a usar o limite GRAVADO; registros antigos sem o campo assumem o atual. |
+| 2026-09-20 | `lib/dominio/calculo_sequencia.dart` | Modificado por IA: classe `DiaDaSequencia` e `CalculoSequencia.grade()`, que devolve um item por dia dos ultimos 30, buracos inclusive. |
+| 2026-09-20 | `lib/estado/estado_mascote.dart` | Modificado por IA: getter `gradeUltimos30Dias`. |
+| 2026-09-20 | `lib/ui/tela_sequencia.dart` | Reescrita por IA: cabecalho com sequencia atual e recorde, grade de 30 dias colorida por estado com o dia corrente em borda, legenda e o historico de sessoes na base. Nada e calculado na tela. |
+| 2026-09-20 | `test/ui/tela_sequencia_test.dart` | Testes gerados por IA para a aba (7 casos), incluindo o estado vazio do primeiro uso. |
+| 2026-09-20 | `test/dominio/calculo_sequencia_test.dart`, `test/dados/repositorio_historico_test.dart` | Testes gerados por IA para o limite gravado e para a grade. |

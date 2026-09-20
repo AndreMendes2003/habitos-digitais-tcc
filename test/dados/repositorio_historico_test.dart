@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:habitos_digitais/dados/repositorio_historico.dart';
+import 'package:habitos_digitais/dominio/regras_energia.dart';
 import 'package:habitos_digitais/dominio/registro_diario.dart';
 import 'package:hive/hive.dart';
 
@@ -132,6 +133,53 @@ void main() {
     expect(lido.cumprido, isFalse);
     expect(lido.falhou, isFalse);
     expect(lido.energiaFinal, 44);
+  });
+
+  test('o limite vigente sobrevive ao round-trip', () async {
+    final repositorio = await abrir();
+    await repositorio.salvar(
+      RegistroDiario(
+        dia: DateTime(2026, 9, 20),
+        minutosRedesSociais: 150,
+        sessoesConcluidas: 0,
+        sessoesInterrompidas: 0,
+        energiaFinal: 50,
+        houveMedicao: true,
+        limiteDiarioMinutos: 200,
+      ),
+    );
+
+    await Hive.close();
+    final lido = (await abrir()).carregarDia(DateTime(2026, 9, 20))!;
+
+    expect(lido.limiteDiarioMinutos, 200);
+    expect(lido.cumprido, isTrue);
+  });
+
+  test('registro antigo, sem o campo de limite, assume o limite atual',
+      () async {
+    final caixa = await Hive.openBox<Map<dynamic, dynamic>>(
+      RepositorioHistorico.nomeCaixa,
+    );
+    // Formato anterior ao campo `limiteDiarioMinutos`.
+    await caixa.put('2026-09-20', {
+      'dia': '2026-09-20',
+      'minutosRedesSociais': 30,
+      'sessoesConcluidas': 1,
+      'sessoesInterrompidas': 0,
+      'energiaFinal': 60,
+      'houveMedicao': true,
+    });
+
+    final lido = RepositorioHistorico(caixa).carregarDia(
+      DateTime(2026, 9, 20),
+    )!;
+
+    expect(
+      lido.limiteDiarioMinutos,
+      RegrasEnergia.limiteDiarioRedesSociaisMinutos,
+    );
+    expect(lido.cumprido, isTrue);
   });
 
   test('registro ilegível é pulado sem derrubar o histórico bom', () async {

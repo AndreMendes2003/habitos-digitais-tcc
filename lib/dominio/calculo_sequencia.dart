@@ -21,6 +21,26 @@ library;
 
 import 'registro_diario.dart';
 
+/// Um dia da janela exibida, com ou sem registro.
+///
+/// Existe para que a UI não precise saber que "sem registro" e "registro sem
+/// medição" são a mesma coisa para o usuário — os dois são lacuna, e a regra
+/// de qual é qual fica aqui, não no widget.
+class DiaDaSequencia {
+  const DiaDaSequencia({required this.dia, this.registro});
+
+  final DateTime dia;
+
+  /// `null` quando o app não gravou nada naquele dia.
+  final RegistroDiario? registro;
+
+  bool get cumprido => registro?.cumprido ?? false;
+  bool get falhou => registro?.falhou ?? false;
+  bool get ehLacuna => !cumprido && !falhou;
+
+  bool ehHoje(DateTime hoje) => dia == RegistroDiario.apenasData(hoje);
+}
+
 abstract final class CalculoSequencia {
   /// Dias consecutivos cumpridos contando de [hoje] para trás.
   ///
@@ -105,6 +125,37 @@ abstract final class CalculoSequencia {
       ..sort((a, b) => a.dia.compareTo(b.dia));
 
     return List.unmodifiable(janela);
+  }
+
+  /// Os últimos [quantidade] dias até [hoje], em ordem cronológica, com UM
+  /// item por dia — inclusive os dias sem registro.
+  ///
+  /// Diferente de [ultimosDias], que devolve só o que existe: aqui os buracos
+  /// aparecem como [DiaDaSequencia] sem registro, porque uma grade de
+  /// calendário precisa de célula para todo dia. A lista tem sempre
+  /// [quantidade] itens, então o layout não muda conforme o histórico cresce.
+  static List<DiaDaSequencia> grade(
+    List<RegistroDiario> registros,
+    DateTime hoje, {
+    int quantidade = 30,
+  }) {
+    final porDia = _indexar(registros);
+    final diaCorrente = RegistroDiario.apenasData(hoje);
+
+    return [
+      for (var atras = quantidade - 1; atras >= 0; atras--)
+        () {
+          final dia = DateTime(
+            diaCorrente.year,
+            diaCorrente.month,
+            diaCorrente.day - atras,
+          );
+          return DiaDaSequencia(
+            dia: dia,
+            registro: porDia[RegistroDiario.chaveDe(dia)],
+          );
+        }(),
+    ];
   }
 
   /// Último registro de cada data. Protege contra duplicatas vindas de um

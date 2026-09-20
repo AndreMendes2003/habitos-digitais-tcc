@@ -11,6 +11,9 @@ import 'package:intl/intl.dart';
 /// `initializeDateFormatting()`.
 final DateFormat formatoInicio = DateFormat('dd/MM/yyyy HH:mm');
 
+/// Só a data, para os rótulos da grade de dias.
+final DateFormat formatoData = DateFormat('dd/MM');
+
 String formatarDuracao(Duration d) {
   final minutos = d.inMinutes.toString().padLeft(2, '0');
   final segundos = (d.inSeconds % 60).toString().padLeft(2, '0');

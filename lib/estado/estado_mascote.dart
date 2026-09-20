@@ -169,6 +169,14 @@ class EstadoApp extends ChangeNotifier {
   List<RegistroDiario> get ultimos30Dias =>
       CalculoSequencia.ultimosDias(_historicoDiario, _relogio());
 
+  /// Os últimos 30 dias com UM item por dia, buracos inclusive.
+  ///
+  /// Serve à grade da aba Sequência. Mora aqui, e não na tela, porque montar
+  /// a janela exige saber que dia é hoje — e o relógio é injetado neste
+  /// nível, não no widget.
+  List<DiaDaSequencia> get gradeUltimos30Dias =>
+      CalculoSequencia.grade(_historicoDiario, _relogio());
+
   // --- Ações que a tela dispara ---------------------------------------------
 
   void selecionarDuracao(Duration duracao) =>
