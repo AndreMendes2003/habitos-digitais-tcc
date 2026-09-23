@@ -11,10 +11,13 @@ PC1 usa a numeração antiga: não usar como referência de IDs.
 
 Duas fontes independentes alimentam uma única variável ENERGIA (0-100):
 
-- lib/foco/    — sessão de foco. Ativa, por evento. +15 concluída, -10 interrompida.
-- lib/uso/     — monitor de redes sociais. Passiva, agregado diário. Penalidade por excesso.
-- lib/mascote/ — ponto ÚNICO de escrita da energia. Nenhum outro módulo
-  altera energia diretamente.
+- lib/dominio/controlador_sessao.dart — sessão de foco. Ativa, por evento.
+  +15 concluída, -10 interrompida.
+- lib/uso/ — monitor de redes sociais. Passiva, agregado diário. Penalidade
+  por excesso. Mede e devolve minutos; NÃO toca em energia.
+- lib/dominio/controlador_mascote.dart — ponto ÚNICO de escrita da energia.
+  Nenhum outro módulo altera energia diretamente. O ControladorUso calcula o
+  delta, mas quem aplica é este.
 
 O estado (Feliz/Neutro/Cansado) é DERIVADO da energia, nunca armazenado.
 Limiares 70/30.
@@ -64,7 +67,7 @@ Consequências:
 
 - RF07: dados, regra e tela implementados (aba Sequência; dias de baseline
   com borda tracejada, legenda "Antes do app").
-- Próximo: mascote Lottie ligado à FSM (RF01 visual).
+- RF01 visual: mascote Lottie ligado à FSM, implementado.
 
 ## Direção visual (fase visual liberada em 20/09)
 
