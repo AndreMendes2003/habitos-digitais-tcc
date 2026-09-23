@@ -33,6 +33,7 @@ import '../dominio/controlador_uso.dart';
 import '../dominio/mascote.dart';
 import '../dominio/registro_diario.dart';
 import '../dominio/sessao_foco.dart';
+import '../plataforma/estado_tela.dart';
 import '../uso/medicao_uso.dart';
 
 class EstadoApp extends ChangeNotifier {
@@ -45,8 +46,10 @@ class EstadoApp extends ChangeNotifier {
     CapturaBaseline? capturaBaseline,
     DateTime Function()? relogio,
     void Function(VoidCallback)? agendarAberturaAFrio,
+    ServicoTela? servicoTela,
   })  : _agendarAberturaAFrio =
             agendarAberturaAFrio ?? _depoisDoPrimeiroFrame,
+        _servicoTela = servicoTela ?? ServicoTela(),
         // ignore: prefer_initializing_formals
         _capturaBaseline = capturaBaseline,
         // ignore: prefer_initializing_formals
@@ -109,6 +112,10 @@ class EstadoApp extends ChangeNotifier {
   /// Injetável para que os testes disparem a abertura a frio na hora, sem
   /// depender de um frame que só existe em teste de widget.
   final void Function(VoidCallback) _agendarAberturaAFrio;
+
+  /// RNF01: distingue "saiu do app" de "bloqueou o celular". Fora do Android
+  /// o canal não responde e o serviço devolve tela ligada.
+  final ServicoTela _servicoTela;
 
   /// Embrulha [avaliarUso] num Completer para que [primeiraAvaliacao]
   /// continue sendo aguardável mesmo saindo do construtor já adiada. O
@@ -230,9 +237,16 @@ class EstadoApp extends ChangeNotifier {
   /// RNF01: única ponte entre o ciclo de vida do Android e o domínio.
   ///
   /// NÃO existe interrupção manual no MVP: a sessão só é interrompida quando
-  /// o Android emite `paused`. O critério de qual estado conta como saída
-  /// mora no ControladorSessao e não é reimplementado aqui.
-  void aoMudarCicloDeVida(AppLifecycleState estadoApp) {
+  /// o Android emite `paused` COM A TELA LIGADA. O critério de qual estado
+  /// conta como saída mora no ControladorSessao e não é reimplementado aqui
+  /// — o que este método faz é buscar o fato (a tela está ligada?) que o
+  /// controlador precisa para aplicar a regra sem conhecer o MethodChannel.
+  ///
+  /// Assíncrono por causa dessa consulta. O `paused` é despachado só depois
+  /// da resposta do canal, então há uma janela curta entre o evento e a
+  /// decisão — é justamente a corrida que o log abaixo serve para medir no
+  /// S23.
+  Future<void> aoMudarCicloDeVida(AppLifecycleState estadoApp) async {
     // TODO(remover antes da entrega): log de diagnóstico do RNF01.
     // Levanta, no Samsung, quais estados o Android emite em cada cenário
     // (barra de notificação, chamada, Home, switcher, tela apagando). A ação
@@ -240,7 +254,14 @@ class EstadoApp extends ChangeNotifier {
     // `paused`.
     final estavaAtiva = _controladorSessao.emAndamento;
 
-    _controladorSessao.aoMudarCicloDeVida(estadoApp);
+    // Só no `paused`: é o único evento em que a resposta muda o desfecho, e
+    // consultar o canal a cada transição custaria um salto para o Android em
+    // eventos que não decidem nada.
+    final tela = estadoApp == AppLifecycleState.paused
+        ? await _servicoTela.consultar()
+        : const EstadoTela.desconhecido();
+
+    _controladorSessao.aoMudarCicloDeVida(estadoApp, telaLigada: tela.ligada);
 
     final acao = estavaAtiva && !_controladorSessao.emAndamento
         ? 'interrompido'
@@ -248,13 +269,20 @@ class EstadoApp extends ChangeNotifier {
     debugPrint(
       '[LIFECYCLE] estado recebido: ${estadoApp.name} '
       '| sessão ativa: ${estavaAtiva ? 'sim' : 'não'} '
-      '| ação: $acao',
+      '| ação: $acao'
+      // Os dois valores crus, e não a conclusão: se houver corrida entre o
+      // apagar da tela e o onPause, ela aparece aqui como isInteractive=true
+      // num `paused` que veio do botão de energia.
+      '${estadoApp == AppLifecycleState.paused ? ' | isInteractive: '
+          '${tela.ligada} | isKeyguardLocked: ${tela.bloqueada}' : ''}',
     );
 
     // RF04, gatilho 1: voltou para o primeiro plano, hora de remedir o uso.
-    // Não interfere no RNF01 — `resumed` continua não encerrando sessão.
+    // Não interfere no RNF01 — `resumed` continua não encerrando sessão por
+    // saída; o que ele pode fazer é CONCLUIR uma que passou do alvo com a
+    // tela apagada, e essa decisão é do ControladorSessao.
     if (estadoApp == AppLifecycleState.resumed) {
-      avaliarUso();
+      await avaliarUso();
     }
   }
 

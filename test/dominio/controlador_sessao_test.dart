@@ -58,6 +58,80 @@ void main() {
     expect(controlador.estado, EstadoSessao.finalizada);
   });
 
+  group('RNF01: tela apagada nao e saida', () {
+    test('paused com a tela DESLIGADA nao interrompe', () {
+      // Botao de energia, ou a tela apagando sozinha. O Android emite o mesmo
+      // `paused` de quem foi para a home — e encerrar aqui puniria
+      // exatamente o comportamento que o app quer incentivar.
+      controlador.selecionarDuracao(const Duration(minutes: 25));
+      controlador.iniciar();
+
+      agora = agora.add(const Duration(minutes: 3));
+      controlador.aoMudarCicloDeVida(
+        AppLifecycleState.paused,
+        telaLigada: false,
+      );
+
+      expect(controlador.estado, EstadoSessao.emAndamento);
+      expect(controlador.ultimaSessao, isNull);
+    });
+
+    test('paused com a tela LIGADA interrompe', () {
+      // O caso legitimo: a tela segue acesa, entao o usuario saiu do app.
+      controlador.selecionarDuracao(const Duration(minutes: 25));
+      controlador.iniciar();
+
+      agora = agora.add(const Duration(minutes: 3));
+      controlador.aoMudarCicloDeVida(
+        AppLifecycleState.paused,
+        telaLigada: true,
+      );
+
+      expect(controlador.ultimaSessao!.status, StatusSessao.interrompida);
+      expect(controlador.estado, EstadoSessao.finalizada);
+    });
+
+    test('sessao que passa do alvo com a tela apagada conclui no resumed', () {
+      // O ticker nao roda em segundo plano: quem descobre que o alvo foi
+      // batido e o proprio resumed. Sem isso a sessao voltaria em andamento
+      // e nunca concluiria.
+      controlador.selecionarDuracao(const Duration(minutes: 5));
+      controlador.iniciar();
+
+      controlador.aoMudarCicloDeVida(
+        AppLifecycleState.paused,
+        telaLigada: false,
+      );
+      expect(controlador.estado, EstadoSessao.emAndamento);
+
+      // Celular bloqueado na mesa por 6 minutos.
+      agora = agora.add(const Duration(minutes: 6));
+      controlador.aoMudarCicloDeVida(AppLifecycleState.resumed);
+
+      final sessao = controlador.ultimaSessao!;
+      expect(sessao.status, StatusSessao.concluida);
+      // Limitado ao alvo: os 6 minutos reais nao viram 6 de foco pedido.
+      expect(sessao.duracaoReal, const Duration(minutes: 5));
+      expect(controlador.estado, EstadoSessao.finalizada);
+    });
+
+    test('tela apagada ANTES do alvo segue em andamento no resumed', () {
+      // O outro lado: voltar antes do alvo nao conclui nem interrompe.
+      controlador.selecionarDuracao(const Duration(minutes: 25));
+      controlador.iniciar();
+
+      controlador.aoMudarCicloDeVida(
+        AppLifecycleState.paused,
+        telaLigada: false,
+      );
+      agora = agora.add(const Duration(minutes: 4));
+      controlador.aoMudarCicloDeVida(AppLifecycleState.resumed);
+
+      expect(controlador.estado, EstadoSessao.emAndamento);
+      expect(controlador.tempoRestante, const Duration(minutes: 21));
+    });
+  });
+
   test('RNF01: sair para segundo plano (paused) marca INTERROMPIDA', () {
     controlador.selecionarDuracao(const Duration(minutes: 25));
     controlador.iniciar();

@@ -93,7 +93,18 @@ class ControladorSessao extends ChangeNotifier {
   }
 
   /// Recebe as transições de ciclo de vida vindas da tela (RNF01).
-  void aoMudarCicloDeVida(AppLifecycleState estadoApp) {
+  ///
+  /// [telaLigada] é `PowerManager.isInteractive` no momento do evento,
+  /// injetado por quem chama. Este controlador não conhece MethodChannel
+  /// nenhum: ele recebe o fato e aplica a regra.
+  ///
+  /// O padrão é `true` — o comportamento anterior, e o erro conservador
+  /// quando a informação não chegou. Assumir a tela apagada manteria viva
+  /// uma sessão realmente abandonada, inflando as sessões concluídas.
+  void aoMudarCicloDeVida(
+    AppLifecycleState estadoApp, {
+    bool telaLigada = true,
+  }) {
     if (!emAndamento) return;
 
     // RNF01: no Android, apenas `paused` significa que o app realmente perdeu
@@ -112,8 +123,25 @@ class ControladorSessao extends ChangeNotifier {
     //
     // `detached` chega só depois de `paused` no Android, então a sessão já
     // terá sido encerrada quando ele acontecer.
-    if (estadoApp == AppLifecycleState.paused) {
+    //
+    // TELA APAGADA NÃO É SAÍDA. Apertar o botão de energia, ou deixar a tela
+    // apagar sozinha, emite o mesmo `paused` de quem foi para a home. Mas
+    // bloquear o celular é precisamente o que o app quer incentivar —
+    // encerrar a sessão aí seria punir o acerto. Com a tela apagada a sessão
+    // segue pelo relógio de parede, e o `resumed` abaixo decide o desfecho.
+    if (estadoApp == AppLifecycleState.paused && telaLigada) {
       _finalizar(StatusSessao.interrompida);
+    }
+
+    // O ticker não roda com o app em segundo plano: o Flutter suspende os
+    // timers. Uma sessão que atingiu o alvo com a tela apagada só descobre
+    // isso agora — e sem esta checagem ela voltaria em andamento, com o
+    // contador zerado e sem nunca concluir.
+    //
+    // `duracaoDecorrida` é relógio de parede, então o tempo com a tela
+    // apagada conta normalmente.
+    if (estadoApp == AppLifecycleState.resumed) {
+      verificarProgresso();
     }
   }
 
