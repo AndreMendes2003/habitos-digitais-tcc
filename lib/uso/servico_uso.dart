@@ -13,11 +13,16 @@ class ServicoUso {
   ServicoUso({
     Set<String>? packages,
     DateTime Function()? relogio,
+    Future<bool> Function(String)? verificarInstalado,
   })  : _packages = packages ?? ClassificadorRedesSociais.packages,
-        _relogio = relogio ?? DateTime.now;
+        _relogio = relogio ?? DateTime.now,
+        _verificarInstalado = verificarInstalado ?? _consultarPackageManager;
 
   final Set<String> _packages;
   final DateTime Function() _relogio;
+
+  /// Injetável: a consulta real é estática e só responde num aparelho.
+  final Future<bool> Function(String) _verificarInstalado;
 
   /// Soma o foreground de hoje (00:00 até agora) dos packages classificados.
   Future<MedicaoUso> medirHoje() async {
@@ -92,18 +97,17 @@ class ServicoUso {
     );
   }
 
-  /// TODO(remover antes da entrega): diagnóstico da classificação.
+  /// Situação de CADA package da lista curada, com os três casos separados.
   ///
   /// Package name errado soma 0 sem erro nenhum. Sem uso hoje também soma 0.
   /// Os dois casos são indistinguíveis olhando só o total — por isso cada
-  /// package ausente é consultado no PackageManager via
-  /// `UsageStats.getAppInfo`, que devolve `null` quando não resolve.
+  /// package ausente da medição é consultado no PackageManager.
   ///
-  /// Usa o próprio usage_stats em vez de `device_apps`: o pacote já está no
-  /// projeto e o `device_apps` está descontinuado no pub.dev. O
-  /// QUERY_ALL_PACKAGES que o Android 11+ exige para essa consulta já está
-  /// declarado no AndroidManifest.
-  Future<void> _registrarDiagnostico(MedicaoUso medicao) async {
+  /// Público e sem `debugPrint` para poder ser testado com um verificador
+  /// falso: o log é uma leitura deste mapa, não uma segunda classificação.
+  Future<Map<String, SituacaoPackage>> diagnosticarPackages(
+    MedicaoUso medicao,
+  ) async {
     final situacoes = <String, SituacaoPackage>{};
 
     for (final package in _packages) {
@@ -116,44 +120,77 @@ class ServicoUso {
           : SituacaoPackage.naoInstalado;
     }
 
-    List<String> naSituacao(SituacaoPackage situacao) => situacoes.entries
-        .where((e) => e.value == situacao)
-        .map((e) => e.key)
-        .toList();
+    return situacoes;
+  }
+
+  /// TODO(remover antes da entrega): diagnóstico da classificação.
+  ///
+  /// Um rótulo por caso, para separar no logcat o que o total esconde:
+  ///
+  ///   USO_42_MIN              o package apareceu na janela medida
+  ///   INSTALADO_SEM_USO_HOJE  existe no aparelho, zero legítimo
+  ///   NAO_INSTALADO           o PackageManager não resolve o nome
+  Future<void> _registrarDiagnostico(MedicaoUso medicao) async {
+    final situacoes = await diagnosticarPackages(medicao);
 
     debugPrint('[USO] total hoje: ${medicao.minutos} min');
 
-    for (final package in naSituacao(SituacaoPackage.comUsoHoje)) {
+    // Ordem fixa pela lista curada: o log de duas execuções diferentes fica
+    // comparável linha a linha.
+    for (final package in _packages) {
       debugPrint(
-        '[USO]   com uso hoje: $package = '
-        '${medicao.packagesEncontrados[package]} min',
+        '[USO]   $package = '
+        '${rotulo(situacoes[package], medicao.packagesEncontrados[package])}',
       );
     }
 
-    for (final package in naSituacao(SituacaoPackage.instaladoSemUso)) {
-      debugPrint('[USO]   instalado, sem uso hoje: $package');
-    }
-
-    final naoInstalados = naSituacao(SituacaoPackage.naoInstalado);
-    for (final package in naoInstalados) {
-      debugPrint('[USO]   NAO INSTALADO no aparelho: $package');
-    }
+    final naoInstalados = situacoes.entries
+        .where((e) => e.value == SituacaoPackage.naoInstalado)
+        .map((e) => e.key);
     if (naoInstalados.isNotEmpty) {
       debugPrint(
-        '[USO]   ^ confira se o package name está certo no '
-        'ClassificadorRedesSociais — um nome errado aparece aqui.',
+        '[USO]   ^ NAO_INSTALADO pode ser package name errado no '
+        'ClassificadorRedesSociais — confira antes de concluir que o '
+        'app não existe no aparelho.',
       );
     }
   }
 
-  /// `getAppInfo` devolve `null` quando o PackageManager não resolve o nome.
+  /// O rótulo de uma situação, isolado para que o teste verifique o texto
+  /// que vai para o logcat, e não uma reconstrução dele.
+  ///
+  /// [minutos] são os do PACKAGE, não o total do dia: o total já sai na
+  /// linha de cima, e repeti-lo em cada linha faria oito apps parecerem ter
+  /// o mesmo uso.
+  static String rotulo(SituacaoPackage? situacao, int? minutos) {
+    switch (situacao) {
+      case SituacaoPackage.comUsoHoje:
+        return 'USO_${minutos ?? 0}_MIN';
+      case SituacaoPackage.instaladoSemUso:
+        return 'INSTALADO_SEM_USO_HOJE';
+      case SituacaoPackage.naoInstalado:
+      case null:
+        return 'NAO_INSTALADO';
+    }
+  }
+
   /// Uma falha na consulta não pode derrubar a medição, que é o dado real.
   Future<bool> _estaInstalado(String packageName) async {
     try {
-      return await UsageStats.getAppInfo(packageName) != null;
+      return await _verificarInstalado(packageName);
     } catch (erro) {
       debugPrint('[USO]   falha ao consultar $packageName: $erro');
       return false;
     }
   }
+
+  /// `getAppInfo` devolve `null` quando o PackageManager não resolve o nome.
+  ///
+  /// Usa o próprio usage_stats em vez de `device_apps`: o pacote já está no
+  /// projeto e o `device_apps` está descontinuado no pub.dev. No Android 11+
+  /// a consulta só enxerga os packages declarados em `<queries>` no
+  /// AndroidManifest — a lista de lá espelha a do ClassificadorRedesSociais,
+  /// e o teste `manifest_queries_test.dart` falha se as duas divergirem.
+  static Future<bool> _consultarPackageManager(String packageName) async =>
+      await UsageStats.getAppInfo(packageName) != null;
 }

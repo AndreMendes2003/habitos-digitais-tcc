@@ -47,5 +47,23 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+
+        <!-- RF04: visibilidade de package no Android 11+ (API 30).
+             Sem isto o PackageManager responde como se o app nao existisse, e
+             "instalado, sem uso hoje" fica indistinguivel de "package name
+             errado" — que e exatamente o que o log de diagnostico separa.
+
+             Esta lista ESPELHA ClassificadorRedesSociais.packages. O XML nao
+             le a constante Dart, entao quem garante o espelho e o teste
+             test/uso/manifest_queries_test.dart: acrescentar um app na
+             constante sem acrescentar aqui quebra a suite. -->
+        <package android:name="com.instagram.android" />
+        <package android:name="com.zhiliaoapp.musically" />
+        <package android:name="com.twitter.android" />
+        <package android:name="com.facebook.katana" />
+        <package android:name="com.snapchat.android" />
+        <package android:name="com.reddit.frontpage" />
+        <package android:name="com.pinterest" />
+        <package android:name="tv.twitch.android.app" />
     </queries>
 </manifest>
