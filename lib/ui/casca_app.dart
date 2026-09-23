@@ -76,12 +76,19 @@ class _CascaAppState extends State<CascaApp> with WidgetsBindingObserver {
         title: Text(_aba.rotulo),
         actions: const [AtalhoDiagnostico()],
       ),
-      // IndexedStack, e não o filho selecionado direto: as três abas seguem
-      // montadas, então voltar para uma preserva a rolagem em vez de
-      // reconstruí-la do zero.
-      body: IndexedStack(
-        index: _aba.index,
-        children: const [TelaCasa(), TelaFoco(), TelaSequencia()],
+      // SafeArea em volta do conteudo, e nao dentro de cada aba: as tres
+      // dividem a mesma regiao e a decisao e da casca. Cobre o recorte da
+      // camera e as bordas curvas — no S23 com navegacao por gestos o
+      // Scaffold ja desconta a barra inferior do corpo, mas as laterais e o
+      // topo em paisagem ficavam por conta de ninguem.
+      body: SafeArea(
+        // IndexedStack, e não o filho selecionado direto: as três abas seguem
+        // montadas, então voltar para uma preserva a rolagem em vez de
+        // reconstruí-la do zero.
+        child: IndexedStack(
+          index: _aba.index,
+          children: const [TelaCasa(), TelaFoco(), TelaSequencia()],
+        ),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _aba.index,

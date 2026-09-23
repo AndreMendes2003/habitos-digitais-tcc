@@ -69,3 +69,4 @@ Ferramenta: Claude (Anthropic), via Claude Code.
 | 2026-09-22 | `lib/uso/servico_uso.dart` | Modificado por IA: `diagnosticarPackages` extraido como metodo publico e puro, verificador de instalacao injetavel, e o log passou a usar um rotulo por caso (NAO_INSTALADO / INSTALADO_SEM_USO_HOJE / USO_X_MIN, com os minutos do package). Nenhuma mudanca na medicao. |
 | 2026-09-22 | `android/app/src/main/AndroidManifest.xml` | Modificado por IA: bloco `<queries>` com os 8 packages da lista curada, exigido pela visibilidade de package do Android 11+. |
 | 2026-09-22 | `test/uso/diagnostico_packages_test.dart`, `test/uso/manifest_queries_test.dart` | Testes gerados por IA: os tres casos do diagnostico com um PackageManager falso, e a guarda que quebra se a lista curada e o `<queries>` divergirem. |
+| 2026-09-22 | `lib/ui/casca_app.dart` | Modificado por IA: corpo do Scaffold envolvido em SafeArea, uma vez na casca em vez de uma por aba. |
