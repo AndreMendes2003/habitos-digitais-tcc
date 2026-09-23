@@ -263,8 +263,17 @@ class EstadoApp extends ChangeNotifier {
 
     _controladorSessao.aoMudarCicloDeVida(estadoApp, telaLigada: tela.ligada);
 
-    final acao = estavaAtiva && !_controladorSessao.emAndamento
-        ? 'interrompido'
+    // O DESFECHO REAL, e não "deixou de estar em andamento".
+    //
+    // Inferir pelo `emAndamento` era suficiente enquanto só o `paused`
+    // encerrava sessão. Agora o `resumed` também encerra — concluindo uma
+    // sessão que bateu o alvo com a tela apagada — e a inferência antiga
+    // rotularia essa conclusão como "interrompido". O registro gravado
+    // estaria certo e só o log mentiria, que é o pior tipo de erro num log
+    // que serve de evidência.
+    final encerrouAgora = estavaAtiva && !_controladorSessao.emAndamento;
+    final acao = encerrouAgora
+        ? _controladorSessao.ultimaSessao?.status.rotulo ?? 'ENCERRADA'
         : 'ignorado';
     debugPrint(
       '[LIFECYCLE] estado recebido: ${estadoApp.name} '

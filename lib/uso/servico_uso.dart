@@ -165,7 +165,12 @@ class ServicoUso {
   static String rotulo(SituacaoPackage? situacao, int? minutos) {
     switch (situacao) {
       case SituacaoPackage.comUsoHoje:
-        return 'USO_${minutos ?? 0}_MIN';
+        // Zero aqui NÃO é ausência de uso: o package só entra em
+        // `packagesEncontrados` com foreground > 0, e os minutos são o
+        // truncamento de um valor abaixo de 60s. "USO_0_MIN" lia como o
+        // mesmo nada que INSTALADO_SEM_USO_HOJE — justamente a confusão que
+        // estes rótulos existem para desfazer.
+        return (minutos ?? 0) > 0 ? 'USO_${minutos}_MIN' : 'USO_MENOS_DE_1_MIN';
       case SituacaoPackage.instaladoSemUso:
         return 'INSTALADO_SEM_USO_HOJE';
       case SituacaoPackage.naoInstalado:

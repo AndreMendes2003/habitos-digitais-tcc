@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show AppLifecycleState;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:habitos_digitais/dados/repositorio_historico.dart';
 import 'package:habitos_digitais/dados/repositorio_mascote.dart';
@@ -207,6 +208,107 @@ void main() {
 
       expect(medicoes, 1);
       expect(app.medicaoUsoPendente, isFalse);
+    });
+  });
+
+  group('log [LIFECYCLE]', () {
+    /// Roda [acao] com o debugPrint capturado e devolve a linha do evento.
+    ///
+    /// O log do RNF01 e a evidencia que vai para o artigo: se ele
+    /// contradisser o registro gravado, a evidencia e que esta errada.
+    ///
+    /// Filtra por 'estado recebido' porque o ServicoTela tambem escreve com
+    /// o prefixo [LIFECYCLE] quando o canal nao responde — e em teste ele
+    /// nunca responde.
+    Future<String> capturarEvento(Future<void> Function() acao) async {
+      final linhas = <String>[];
+      final original = debugPrint;
+      debugPrint = (String? mensagem, {int? wrapWidth}) {
+        linhas.add(mensagem ?? '');
+      };
+      try {
+        await acao();
+      } finally {
+        debugPrint = original;
+      }
+      return linhas.firstWhere((l) => l.contains('[LIFECYCLE] estado recebido'));
+    }
+
+    /// Espera o encadeamento do fim de sessao assentar em disco.
+    ///
+    /// `aoFinalizarSessao` nao e aguardado por quem o dispara: energia, Hive
+    /// e avaliarUso correm depois que o metodo ja voltou. Fechar as caixas
+    /// antes disso estoura com "Box has already been closed" — e o numero de
+    /// drenagens necessario nao e algo que se acerte por tentativa.
+    ///
+    /// Espera pelo RepositorioSessoes, e nao pelo registro diario: o relogio
+    /// injetado aqui e o do EstadoApp (RF07), enquanto o ControladorSessao
+    /// mantem o proprio, de propósito. A sessao nasce com a data real e por
+    /// isso nao entra na contagem do dia `hoje` fixado no teste.
+    Future<void> esperarSessaoGravada() async {
+      final limite = DateTime.now().add(const Duration(seconds: 5));
+      while (DateTime.now().isBefore(limite)) {
+        if (repositorioSessoes.todas().isNotEmpty) {
+          // Rabicho: avaliarUso ainda corre depois da gravacao da sessao.
+          for (var i = 0; i < 5; i++) {
+            await Future<void>.delayed(Duration.zero);
+          }
+          return;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      fail('a sessao interrompida nao chegou ao RepositorioSessoes');
+    }
+
+    test('acao nomeia o desfecho real da sessao, nao "encerrou"', () async {
+      final app = await abrirApp();
+      app.iniciarSessao();
+
+      // Em teste o canal nao responde e o fallback e tela LIGADA, entao o
+      // paused interrompe de verdade — que e o comportamento conservador.
+      final evento = await capturarEvento(
+        () => app.aoMudarCicloDeVida(AppLifecycleState.paused),
+      );
+
+      // O rotulo vem de StatusSessao, e nao de uma inferencia por
+      // `emAndamento`. Desde que o resumed tambem encerra sessao (concluindo
+      // a que passou do alvo com a tela apagada), inferir rotularia uma
+      // conclusao como interrupcao.
+      expect(evento, contains('ação: ${StatusSessao.interrompida.rotulo}'));
+
+      // E o rotulo BATE com o que foi gravado: e essa correspondencia que
+      // torna o log citavel.
+      expect(app.ultimaSessao!.status, StatusSessao.interrompida);
+      expect(evento, contains(app.ultimaSessao!.status.rotulo));
+
+      await esperarSessaoGravada();
+    });
+
+    test('paused registra os dois valores crus da tela', () async {
+      final app = await abrirApp();
+
+      final evento = await capturarEvento(
+        () => app.aoMudarCicloDeVida(AppLifecycleState.paused),
+      );
+
+      // Sem os valores crus nao da para ver, no S23, se houve corrida entre
+      // o apagar da tela e o onPause.
+      expect(evento, contains('isInteractive:'));
+      expect(evento, contains('isKeyguardLocked:'));
+      expect(evento, contains('ação: ignorado'));
+      expect(evento, contains('sessão ativa: não'));
+    });
+
+    test('evento que nao decide nada nao consulta a tela', () async {
+      final app = await abrirApp();
+
+      final evento = await capturarEvento(
+        () => app.aoMudarCicloDeVida(AppLifecycleState.inactive),
+      );
+
+      // Consultar o canal em todo evento custaria um salto para o Android
+      // onde a resposta nao muda desfecho nenhum.
+      expect(evento, isNot(contains('isInteractive:')));
     });
   });
 

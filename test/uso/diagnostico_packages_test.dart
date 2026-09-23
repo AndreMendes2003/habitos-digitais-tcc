@@ -50,6 +50,13 @@ void main() {
           medicao.packagesEncontrados['com.instagram.android']),
       'USO_42_MIN',
     );
+    // Menos de 60s de foreground trunca para 0 minuto. "USO_0_MIN" leria
+    // como o mesmo nada que INSTALADO_SEM_USO_HOJE — e o package so chega
+    // aqui se teve uso de verdade.
+    expect(
+      ServicoUso.rotulo(SituacaoPackage.comUsoHoje, 0),
+      'USO_MENOS_DE_1_MIN',
+    );
     expect(
       ServicoUso.rotulo(SituacaoPackage.instaladoSemUso, null),
       'INSTALADO_SEM_USO_HOJE',
