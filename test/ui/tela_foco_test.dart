@@ -72,6 +72,7 @@ void main() {
       repositorioUso: repositorioUso,
       repositorioHistorico: repositorioHistorico,
       medirUso: () async => medicao,
+      agendarAberturaAFrio: (acao) => acao(),
     );
     estado = novo;
     return novo;

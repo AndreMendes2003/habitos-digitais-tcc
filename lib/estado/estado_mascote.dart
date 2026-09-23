@@ -16,8 +16,10 @@
 /// RegrasEnergia, sem cópia nenhuma aqui.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart' show AppLifecycleState;
+import 'package:flutter/widgets.dart' show AppLifecycleState, WidgetsBinding;
 
 import '../dados/repositorio_historico.dart';
 import '../dados/repositorio_mascote.dart';
@@ -42,7 +44,9 @@ class EstadoApp extends ChangeNotifier {
     required Future<MedicaoUso> Function() medirUso,
     CapturaBaseline? capturaBaseline,
     DateTime Function()? relogio,
-  })  :
+    void Function(VoidCallback)? agendarAberturaAFrio,
+  })  : _agendarAberturaAFrio =
+            agendarAberturaAFrio ?? _depoisDoPrimeiroFrame,
         // ignore: prefer_initializing_formals
         _capturaBaseline = capturaBaseline,
         // ignore: prefer_initializing_formals
@@ -87,7 +91,33 @@ class EstadoApp extends ChangeNotifier {
     // RF04, gatilho 3: abertura a frio. O Flutter não emite `resumed` para o
     // estado inicial, então sem isto o app só avaliaria depois de o usuário
     // sair e voltar — justamente o cenário "reabrir o app" do requisito.
-    primeiraAvaliacao = avaliarUso();
+    //
+    // AGENDADO, e não chamado direto: a consulta ao UsageStatsManager é um
+    // salto para o lado Android e volta, e disparada aqui ela cai no meio da
+    // construção da primeira árvore de widgets — ~57 frames pulados no S23.
+    // Depois do primeiro frame o usuário já vê a tela, com os minutos em
+    // "medindo..." até a medida chegar.
+    primeiraAvaliacao = _aberturaAFrio();
+  }
+
+  /// Agendamento padrão do gatilho de abertura a frio: o primeiro frame
+  /// desenha antes de qualquer consulta de uso.
+  static void _depoisDoPrimeiroFrame(VoidCallback acao) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => acao());
+  }
+
+  /// Injetável para que os testes disparem a abertura a frio na hora, sem
+  /// depender de um frame que só existe em teste de widget.
+  final void Function(VoidCallback) _agendarAberturaAFrio;
+
+  /// Embrulha [avaliarUso] num Completer para que [primeiraAvaliacao]
+  /// continue sendo aguardável mesmo saindo do construtor já adiada. O
+  /// `complete(Future)` repassa erro também — engolir aqui esconderia uma
+  /// falha de medição no boot.
+  Future<void> _aberturaAFrio() {
+    final concluida = Completer<void>();
+    _agendarAberturaAFrio(() => concluida.complete(avaliarUso()));
+    return concluida.future;
   }
 
   final RepositorioSessoes _repositorioSessoes;
@@ -107,7 +137,8 @@ class EstadoApp extends ChangeNotifier {
   final ControladorMascote _controladorMascote;
   final ControladorUso _controladorUso;
 
-  /// Gatilho de abertura a frio, disparado no construtor.
+  /// Gatilho de abertura a frio, agendado no construtor para depois do
+  /// primeiro frame.
   ///
   /// Exposto porque o construtor não pode ser `async` e mesmo assim inicia
   /// trabalho que termina em disco: sem isto, nada no app consegue saber

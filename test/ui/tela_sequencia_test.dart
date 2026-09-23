@@ -81,6 +81,7 @@ void main() {
       medirUso: medirUso ??
           () async => MedicaoUso(permissaoConcedida: true, minutos: dentro),
       relogio: () => hoje,
+      agendarAberturaAFrio: (acao) => acao(),
     );
     estado = novo;
     return novo;

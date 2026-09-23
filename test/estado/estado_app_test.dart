@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:habitos_digitais/dados/repositorio_historico.dart';
 import 'package:habitos_digitais/dados/repositorio_mascote.dart';
@@ -17,6 +18,14 @@ import 'package:hive/hive.dart';
 ///
 /// Teste de estado, não de widget: aqui não há zona fake-async, então a
 /// escrita real no Hive completa normalmente.
+/// Dispara a abertura a frio na hora, em vez de esperar o primeiro frame.
+///
+/// Em produção o gatilho é adiado para depois do primeiro frame (a consulta
+/// ao UsageStatsManager travava o boot). Estes testes constroem o EstadoApp
+/// fora de um teste de widget, onde frame nenhum é desenhado — sem isto,
+/// `primeiraAvaliacao` nunca completaria.
+void dispararJa(VoidCallback acao) => acao();
+
 void main() {
   late Directory diretorio;
   late RepositorioMascote repositorioMascote;
@@ -70,6 +79,7 @@ void main() {
       repositorioHistorico: repositorioHistorico,
       medirUso: () async => medicao,
       relogio: () => hoje,
+      agendarAberturaAFrio: dispararJa,
     );
     estado = novo;
     // Espera o gatilho de abertura a frio que o construtor disparou. Chamar
@@ -112,6 +122,7 @@ void main() {
         repositorioHistorico: repositorioHistorico,
         medirUso: () async => medicao,
         relogio: () => hoje,
+        agendarAberturaAFrio: dispararJa,
       );
       estado = app;
 
@@ -146,6 +157,7 @@ void main() {
         repositorioHistorico: repositorioHistorico,
         medirUso: () async => medicao,
         relogio: () => hoje,
+        agendarAberturaAFrio: dispararJa,
       );
       estado = app;
 
@@ -156,6 +168,44 @@ void main() {
 
       // Sem notificação a tela ficaria em "medindo..." para sempre.
       expect(avisos, greaterThan(0));
+      expect(app.medicaoUsoPendente, isFalse);
+    });
+  });
+
+  group('adiamento da abertura a frio', () {
+    test('nao mede antes do primeiro frame; mede quando ele chega', () async {
+      var medicoes = 0;
+      VoidCallback? agendada;
+
+      final app = EstadoApp(
+        repositorioMascote: repositorioMascote,
+        repositorioSessoes: repositorioSessoes,
+        repositorioUso: repositorioUso,
+        repositorioHistorico: repositorioHistorico,
+        medirUso: () async {
+          medicoes++;
+          return medicao;
+        },
+        relogio: () => hoje,
+        // No lugar do addPostFrameCallback: guarda a acao em vez de rodar,
+        // para o teste poder inspecionar o intervalo entre construir o
+        // EstadoApp e o primeiro frame acontecer.
+        agendarAberturaAFrio: (acao) => agendada = acao,
+      );
+      estado = app;
+
+      // O construtor terminou. Se a consulta ao UsageStatsManager saisse
+      // daqui, ela cairia dentro da construcao da primeira arvore de widgets
+      // — que e exatamente o travamento do boot.
+      expect(medicoes, 0);
+      expect(app.medicaoUsoPendente, isTrue);
+      expect(agendada, isNotNull);
+
+      // O primeiro frame desenhou: agora sim.
+      agendada!();
+      await app.primeiraAvaliacao;
+
+      expect(medicoes, 1);
       expect(app.medicaoUsoPendente, isFalse);
     });
   });
