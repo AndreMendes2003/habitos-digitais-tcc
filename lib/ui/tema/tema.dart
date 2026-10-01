@@ -59,6 +59,9 @@ abstract final class Tema {
       useMaterial3: true,
       brightness: brilho,
       colorScheme: esquema,
+      // Para o que não passa pelo textTheme (rótulos da NavigationBar,
+      // SnackBar...): sem isto esses textos cairiam na Roboto do sistema.
+      fontFamily: Tipografia.familia,
       scaffoldBackgroundColor: fundo,
       textTheme: textos,
       // `disabledColor` é o tom do "medindo..." na linha de uso: um estado

@@ -25,9 +25,9 @@ abstract final class AnimacoesMascote {
   /// de propósito: acrescentar um estado novo quebra aqui, em vez de cair
   /// silenciosamente num `default` sem animação.
   static const Map<EstadoMascote, String> caminhos = {
-    EstadoMascote.feliz: 'assets/animacoes/CatLove.json',
-    EstadoMascote.neutro: 'assets/animacoes/CatLaugh.json',
-    EstadoMascote.cansado: 'assets/animacoes/CatCry.json',
+    EstadoMascote.feliz: 'assets/mascote/CatLove.json',
+    EstadoMascote.neutro: 'assets/mascote/CatLaugh.json',
+    EstadoMascote.cansado: 'assets/mascote/CatCry.json',
   };
 
   /// Caixa ocupada pela ARTE dentro do canvas de 500x500 de cada animação,
@@ -43,7 +43,7 @@ abstract final class AnimacoesMascote {
   /// o quadro 0 cortaria o topo do pulo.
   ///
   /// Os ARQUIVOS não são alterados: o recorte acontece na renderização, então
-  /// a declaração de licença em docs/assets.md continua valendo.
+  /// a declaração de licença em docs/creditos_assets.md continua valendo.
   static const Map<EstadoMascote, Rect> conteudo = {
     EstadoMascote.feliz: Rect.fromLTRB(0.156, 0.254, 0.832, 0.730),
     EstadoMascote.neutro: Rect.fromLTRB(0.110, 0.360, 0.880, 0.754),

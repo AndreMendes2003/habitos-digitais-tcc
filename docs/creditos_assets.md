@@ -6,7 +6,8 @@ produzido pelo autor deste trabalho.
 ## Animações do mascote
 
 Personagem: gato laranja, três estados emocionais do mesmo conjunto,
-usados como representação visual da FSM do mascote (RF01).
+usados como representação visual da FSM do mascote (RF01). Arquivos em
+`assets/mascote/`.
 
 | Arquivo | Estado | Origem |
 |---|---|---|
@@ -36,7 +37,17 @@ os originais.
 
 ## Tipografia
 
-- **Nunito** — Open Font License (OFL), via pacote `google_fonts`.
+- **Nunito** — The Nunito Project Authors
+  (https://github.com/googlefonts/nunito), SIL Open Font License 1.1.
+- **Arquivos:** `assets/fontes/Nunito-Regular.ttf` (400),
+  `Nunito-SemiBold.ttf` (600) e `Nunito-Bold.ttf` (700), empacotados no
+  app. Texto da licença em `assets/fontes/OFL.txt`, que a OFL exige que
+  acompanhe a redistribuição.
+- **Origem:** os mesmos arquivos estáticos que o pacote `google_fonts`
+  baixava em runtime (fonts.gstatic.com), conferidos pelo SHA-256 que o
+  próprio pacote fixa para cada peso. Empacotados para o piloto não
+  depender de rede.
+- **Modificações:** nenhuma.
 
 ## Observações
 
