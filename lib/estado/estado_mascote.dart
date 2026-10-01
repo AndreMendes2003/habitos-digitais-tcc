@@ -35,6 +35,7 @@ import '../dominio/registro_diario.dart';
 import '../dominio/sessao_foco.dart';
 import '../plataforma/estado_tela.dart';
 import '../uso/medicao_uso.dart';
+import '../uso/servico_uso.dart';
 
 class EstadoApp extends ChangeNotifier {
   EstadoApp({
@@ -47,7 +48,10 @@ class EstadoApp extends ChangeNotifier {
     DateTime Function()? relogio,
     void Function(VoidCallback)? agendarAberturaAFrio,
     ServicoTela? servicoTela,
-  })  : _agendarAberturaAFrio =
+    Future<void> Function()? abrirConfiguracaoPermissao,
+  })  : _abrirConfiguracaoPermissao = abrirConfiguracaoPermissao ??
+            ServicoUso.abrirConfiguracaoPermissao,
+        _agendarAberturaAFrio =
             agendarAberturaAFrio ?? _depoisDoPrimeiroFrame,
         _servicoTela = servicoTela ?? ServicoTela(),
         // ignore: prefer_initializing_formals
@@ -116,6 +120,10 @@ class EstadoApp extends ChangeNotifier {
   /// RNF01: distingue "saiu do app" de "bloqueou o celular". Fora do Android
   /// o canal não responde e o serviço devolve tela ligada.
   final ServicoTela _servicoTela;
+
+  /// Injetável pelo mesmo motivo do [_servicoTela]: o padrão fala com o
+  /// plugin, que só responde num aparelho.
+  final Future<void> Function() _abrirConfiguracaoPermissao;
 
   /// Embrulha [avaliarUso] num Completer para que [primeiraAvaliacao]
   /// continue sendo aguardável mesmo saindo do construtor já adiada. O
@@ -202,6 +210,19 @@ class EstadoApp extends ChangeNotifier {
 
   bool get permissaoUsoConcedida => _controladorUso.permissaoConcedida;
 
+  /// Falta a permissão E já se sabe disso. Antes da primeira medição o
+  /// `permissaoUsoConcedida` ainda é o valor inicial, não uma leitura.
+  bool get permissaoUsoPendente =>
+      !medicaoUsoPendente && !permissaoUsoConcedida;
+
+  /// Abrir a configuração agora não custaria a sessão de foco.
+  ///
+  /// Ir para as Configurações é sair do app com a tela ligada — exatamente o
+  /// `paused` que o RNF01 trata como interrupção. Oferecer o botão durante a
+  /// sessão seria o próprio app induzindo o -10.
+  bool get podeSolicitarPermissaoUso =>
+      permissaoUsoPendente && !sessaoEmAndamento;
+
   // --- Histórico diário e sequência (RF07) ----------------------------------
 
   /// Dias consecutivos dentro do limite até hoje. Lacuna atravessa.
@@ -233,6 +254,20 @@ class EstadoApp extends ChangeNotifier {
   void iniciarSessao() => _controladorSessao.iniciar();
 
   void reiniciarSessao() => _controladorSessao.reiniciar();
+
+  /// RF04, item 6: leva o usuário à tela de "Acesso ao uso".
+  ///
+  /// Não mede nada aqui. A volta ao app emite `resumed`, que já remede o uso
+  /// (gatilho 1) — e, com a permissão recém-concedida, dispara a captura do
+  /// baseline. Um segundo caminho de medição só duplicaria aquele.
+  ///
+  /// Recusa em silêncio durante a sessão de foco: ver
+  /// [podeSolicitarPermissaoUso]. A tela já não oferece o botão nesse caso;
+  /// a guarda aqui é para que nenhum outro chamador consiga.
+  Future<void> solicitarPermissaoUso() async {
+    if (!podeSolicitarPermissaoUso) return;
+    await _abrirConfiguracaoPermissao();
+  }
 
   /// RNF01: única ponte entre o ciclo de vida do Android e o domínio.
   ///

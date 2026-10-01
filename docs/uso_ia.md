@@ -86,3 +86,7 @@ Ferramenta: Claude (Anthropic), via Claude Code.
 | 2026-10-01 | `lib/ui/componentes/animacoes_mascote.dart` | Modificado por IA: caminhos dos assets para `assets/mascote/`. |
 | 2026-10-01 | `docs/creditos_assets.md` | Renomeado por IA a partir de `docs/assets.md` (nome fixado no CLAUDE.md); secao de tipografia reescrita por IA com autoria, licenca, origem e arquivos da Nunito. Secao das animacoes inalterada, salvo a mencao ao novo caminho. |
 | 2026-10-01 | `test/ui/fontes_empacotadas_test.dart` | Testes gerados por IA (3 casos): google_fonts fora das dependencias, familia declarada e os tres pesos presentes em disco. |
+| 2026-10-01 | `lib/uso/servico_uso.dart` | Modificado por IA: `abrirConfiguracaoPermissao`, que so abre a tela de "Acesso ao uso" do Android. Nenhuma mudanca na medicao. |
+| 2026-10-01 | `lib/estado/estado_mascote.dart` | Modificado por IA: `permissaoUsoPendente`, `podeSolicitarPermissaoUso` e `solicitarPermissaoUso`, com a abertura injetavel. Recusa durante sessao de foco, porque ir as Configuracoes e o `paused` que interrompe. A remedicao continua sendo a do `resumed`. |
+| 2026-10-01 | `lib/ui/tela_casa.dart` | Modificado por IA: botao "Permitir acesso ao uso" sob a linha de status quando a permissao falta, desabilitado durante a sessao. |
+| 2026-10-01 | `test/ui/tela_foco_test.dart` | Testes gerados por IA (4 casos): botao abre as Configuracoes, some quando a permissao chega no `resumed`, ausente com permissao, e inerte durante a sessao. |
