@@ -24,6 +24,15 @@ class ServicoUso {
   /// Injetável: a consulta real é estática e só responde num aparelho.
   final Future<bool> Function(String) _verificarInstalado;
 
+  /// Abre a tela do Android onde o usuário libera o "Acesso ao uso".
+  ///
+  /// Só ABRE a configuração: a permissão não é concedida por código, e o
+  /// resultado não volta por aqui. Quem percebe a mudança é a remedição do
+  /// `resumed`, quando o usuário retorna ao app.
+  static Future<void> abrirConfiguracaoPermissao() async {
+    await UsageStats.grantUsagePermission();
+  }
+
   /// Soma o foreground de hoje (00:00 até agora) dos packages classificados.
   Future<MedicaoUso> medirHoje() async {
     final agora = _relogio();

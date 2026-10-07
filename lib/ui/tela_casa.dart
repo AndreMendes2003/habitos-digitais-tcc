@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../dominio/regras_energia.dart';
 import '../estado/estado_mascote.dart';
+import 'componentes/botao_principal.dart';
 import 'componentes/widget_mascote.dart';
 import 'tema/cores.dart';
 import 'tema/espacamento.dart';
@@ -27,6 +28,10 @@ class TelaCasa extends StatelessWidget {
           WidgetMascote(mascote: estado.mascote),
           const SizedBox(height: Espacamento.sm),
           _statusRedesSociais(context, estado),
+          if (estado.permissaoUsoPendente) ...[
+            const SizedBox(height: Espacamento.md),
+            _pedidoDePermissao(context, estado),
+          ],
         ],
       ),
     );
@@ -68,6 +73,40 @@ class TelaCasa extends StatelessWidget {
         color: minutos > limite ? Cores.alerta : null,
         fontWeight: minutos > limite ? FontWeight.w700 : null,
       ),
+    );
+  }
+
+  /// RF04, item 6: o caminho para sair da lacuna, na mesma tela que a
+  /// anuncia.
+  ///
+  /// Sem permissão o dia vira lacuna no histórico e nada é medido — e o
+  /// único jeito de o participante conceder era achar sozinho o "Acesso ao
+  /// uso" nas Configurações do Android.
+  ///
+  /// Desabilitado durante a sessão de foco: abrir as Configurações é sair do
+  /// app com a tela ligada, que o RNF01 conta como interrupção.
+  Widget _pedidoDePermissao(BuildContext context, EstadoApp estado) {
+    final disponivel = estado.podeSolicitarPermissaoUso;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        BotaoPrincipal(
+          rotulo: 'Permitir acesso ao uso',
+          variante: VarianteBotao.secundario,
+          onPressed: disponivel ? estado.solicitarPermissaoUso : null,
+        ),
+        const SizedBox(height: Espacamento.xs),
+        Text(
+          disponivel
+              ? 'Abre as Configurações. Ative o app e volte para cá.'
+              : 'Disponível ao fim da sessão de foco.',
+          textAlign: TextAlign.center,
+          style: Tipografia.micro.copyWith(
+            color: Theme.of(context).disabledColor,
+          ),
+        ),
+      ],
     );
   }
 }

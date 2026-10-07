@@ -43,7 +43,6 @@ dependencies:
   # transitiva quebra em qualquer upgrade.
   path_provider: ^2.1.4
   provider: ^6.1.2
-  google_fonts: ^6.2.1
   # Dependencia adicionada a pedido; nenhuma animacao usa Lottie ainda.
   lottie: ^3.1.2
 
@@ -70,9 +69,22 @@ flutter:
   uses-material-design: true
 
   # Animacoes Lottie do mascote (RF01). Origem, autoria e licenca em
-  # docs/assets.md.
+  # docs/creditos_assets.md.
   assets:
-    - assets/animacoes/
+    - assets/mascote/
+
+  # Nunito empacotada, e nao baixada pelo google_fonts em runtime: o piloto
+  # nao pode depender de rede para desenhar texto. So os tres pesos que a
+  # escala de Tipografia usa. Licenca (OFL) em assets/fontes/OFL.txt.
+  fonts:
+    - family: Nunito
+      fonts:
+        - asset: assets/fontes/Nunito-Regular.ttf
+          weight: 400
+        - asset: assets/fontes/Nunito-SemiBold.ttf
+          weight: 600
+        - asset: assets/fontes/Nunito-Bold.ttf
+          weight: 700
 
   # To add assets to your application, add an assets section, like this:
   # assets:

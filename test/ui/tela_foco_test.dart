@@ -31,6 +31,9 @@ void main() {
   /// o que descartar — a tela não o conhece, recebe pelo provider.
   EstadoApp? estado;
 
+  /// Quantas vezes a tela pediu para abrir as Configurações do Android.
+  late int aberturasDaConfiguracao;
+
   setUp(() async {
     diretorio = await Directory.systemTemp.createTemp('habitos_tela_test');
     Hive.init(diretorio.path);
@@ -50,6 +53,7 @@ void main() {
     );
     medicao = const MedicaoUso(permissaoConcedida: true, minutos: 0);
     estado = null;
+    aberturasDaConfiguracao = 0;
   });
 
   tearDown(() async {
@@ -73,6 +77,7 @@ void main() {
       repositorioHistorico: repositorioHistorico,
       medirUso: () async => medicao,
       agendarAberturaAFrio: (acao) => acao(),
+      abrirConfiguracaoPermissao: () async => aberturasDaConfiguracao++,
     );
     estado = novo;
     return novo;
@@ -308,6 +313,60 @@ void main() {
     expect(find.text('Energia: 50/100'), findsOneWidget);
     expect(repositorioMascote.carregar().energia, 50);
     expect(repositorioUso.carregar(), isNull);
+  });
+
+  testWidgets('RF04: sem permissao oferece abrir as Configuracoes',
+      (tester) async {
+    medicao = const MedicaoUso.semPermissao();
+    await montarEAssentar(tester);
+
+    await tester.ensureVisible(find.text('Permitir acesso ao uso'));
+    await tester.tap(find.text('Permitir acesso ao uso'));
+    await tester.pump();
+
+    expect(aberturasDaConfiguracao, 1);
+  });
+
+  testWidgets('RF04: concedida na volta, o pedido some e o uso aparece',
+      (tester) async {
+    medicao = const MedicaoUso.semPermissao();
+    await montarEAssentar(tester);
+    expect(find.text('Permitir acesso ao uso'), findsOneWidget);
+
+    // O usuario ativou o acesso nas Configuracoes e voltou: o `resumed` ja
+    // remede, sem caminho novo de medicao.
+    medicao = const MedicaoUso(permissaoConcedida: true, minutos: 30);
+    await emitirCicloDeVida(tester, [AppLifecycleState.resumed]);
+
+    expect(find.text('Permitir acesso ao uso'), findsNothing);
+    expect(find.text('Redes sociais hoje: 30 min / 120 min'), findsOneWidget);
+  });
+
+  testWidgets('RF04: com permissao nao ha pedido', (tester) async {
+    await montarEAssentar(tester);
+    expect(find.text('Permitir acesso ao uso'), findsNothing);
+  });
+
+  testWidgets('RNF01: durante a sessao o pedido fica desabilitado',
+      (tester) async {
+    medicao = const MedicaoUso.semPermissao();
+    await montarEAssentar(tester);
+    await abrirAba(tester, 'Foco');
+    await tester.ensureVisible(find.text('Iniciar foco'));
+    await tester.tap(find.text('Iniciar foco'));
+    await tester.pump();
+
+    await abrirAba(tester, 'Casa');
+    expect(find.text('Disponível ao fim da sessão de foco.'), findsOneWidget);
+    await tester.ensureVisible(find.text('Permitir acesso ao uso'));
+    await tester.tap(find.text('Permitir acesso ao uso'));
+    await tester.pump();
+
+    // Abrir as Configuracoes agora seria o `paused` que interrompe a sessao.
+    expect(aberturasDaConfiguracao, 0);
+    expect(estado!.sessaoEmAndamento, isTrue);
+
+    await emitirCicloDeVida(tester, [AppLifecycleState.paused]);
   });
 
   testWidgets('RF04: uso acima do limite desconta ao voltar ao app',

@@ -78,3 +78,15 @@ Ferramenta: Claude (Anthropic), via Claude Code.
 | 2026-09-22 | `lib/estado/estado_mascote.dart` | Modificado por IA: o campo `acao` do log [LIFECYCLE] passou a usar StatusSessao.rotulo da sessao gravada, em vez de inferir "interrompido" por `emAndamento`. A inferencia rotularia como interrupcao a sessao concluida no resumed. |
 | 2026-09-22 | `lib/uso/servico_uso.dart` | Modificado por IA: uso abaixo de 1 minuto sai como USO_MENOS_DE_1_MIN em vez de USO_0_MIN. |
 | 2026-09-22 | `test/estado/estado_app_test.dart`, `test/uso/diagnostico_packages_test.dart` | Testes gerados por IA para os dois rotulos (3 casos novos no log [LIFECYCLE], 1 no rotulo sub-minuto). |
+| 2026-10-01 | `assets/mascote/*.json` | NAO gerados por IA. Movidos por IA de `assets/animacoes/` para `assets/mascote/`, o caminho fixado no CLAUDE.md. Conteudo inalterado. |
+| 2026-10-01 | `assets/fontes/Nunito-*.ttf`, `assets/fontes/OFL.txt` | NAO gerados por IA. Nunito (The Nunito Project Authors, OFL 1.1) baixada por IA de fonts.gstatic.com, os mesmos arquivos que o google_fonts usava, conferidos pelo SHA-256 fixado no pacote. |
+| 2026-10-01 | `pubspec.yaml` | Modificado por IA: remove `google_fonts`, declara a familia Nunito empacotada (400/600/700) e o novo caminho `assets/mascote/`. |
+| 2026-10-01 | `lib/ui/tema/tipografia.dart` | Modificado por IA: estilos passam a `TextStyle` constantes sobre a familia empacotada, sem google_fonts. Tamanhos e pesos inalterados. |
+| 2026-10-01 | `lib/ui/tema/tema.dart` | Modificado por IA: `fontFamily` no ThemeData, para os textos fora do textTheme tambem usarem Nunito. |
+| 2026-10-01 | `lib/ui/componentes/animacoes_mascote.dart` | Modificado por IA: caminhos dos assets para `assets/mascote/`. |
+| 2026-10-01 | `docs/creditos_assets.md` | Renomeado por IA a partir de `docs/assets.md` (nome fixado no CLAUDE.md); secao de tipografia reescrita por IA com autoria, licenca, origem e arquivos da Nunito. Secao das animacoes inalterada, salvo a mencao ao novo caminho. |
+| 2026-10-01 | `test/ui/fontes_empacotadas_test.dart` | Testes gerados por IA (3 casos): google_fonts fora das dependencias, familia declarada e os tres pesos presentes em disco. |
+| 2026-10-01 | `lib/uso/servico_uso.dart` | Modificado por IA: `abrirConfiguracaoPermissao`, que so abre a tela de "Acesso ao uso" do Android. Nenhuma mudanca na medicao. |
+| 2026-10-01 | `lib/estado/estado_mascote.dart` | Modificado por IA: `permissaoUsoPendente`, `podeSolicitarPermissaoUso` e `solicitarPermissaoUso`, com a abertura injetavel. Recusa durante sessao de foco, porque ir as Configuracoes e o `paused` que interrompe. A remedicao continua sendo a do `resumed`. |
+| 2026-10-01 | `lib/ui/tela_casa.dart` | Modificado por IA: botao "Permitir acesso ao uso" sob a linha de status quando a permissao falta, desabilitado durante a sessao. |
+| 2026-10-01 | `test/ui/tela_foco_test.dart` | Testes gerados por IA (4 casos): botao abre as Configuracoes, some quando a permissao chega no `resumed`, ausente com permissao, e inerte durante a sessao. |
